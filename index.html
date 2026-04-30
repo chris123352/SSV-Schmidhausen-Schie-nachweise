@@ -7,7 +7,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      /* Ein etwas dunkleres, satteres Grün */
       --ssv-green: #1b7a3d;
       --ssv-yellow: #ffcc00; 
       --ssv-light: #f0f2f0;
@@ -34,18 +33,16 @@
       text-align: center;
       border-bottom: 4px solid var(--ssv-yellow);
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      display: flex;
-      justify-content: center;
+      display: flex;      justify-content: center;
       align-items: center;
     }
 
-    /* Das Logo im Header */
     header img {
-      height: 50px; /* Etwas größer für bessere Sichtbarkeit */
+      height: 50px;
       width: auto;
       margin-right: 15px;
-      border-radius: 50%; /* Macht das Logo rund, falls gewünscht */
-      background: white; /* Weißer Hintergrund, falls das Logo transparent ist */
+      border-radius: 50%;
+      background: white;
       padding: 2px;
     }
 
@@ -90,7 +87,7 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       box-sizing: border-box;
-      font-size: 16px; /* Wichtig gegen Auto-Zoom auf Mobilgeräten */
+      font-size: 16px;
       background-color: #fcfcfc;
     }
 
@@ -116,20 +113,10 @@
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
-    button:hover {
-      background-color: #145c2e;
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
+    button:hover { background-color: #145c2e; }
+    button:active { transform: translateY(1px); }
 
-    button:active {
-      transform: translateY(1px);
-    }
-
-    #list {
-      list-style: none;
-      padding: 0;
-      margin-top: 20px;
-    }
+    #list { list-style: none; padding: 0; margin-top: 20px; }
 
     #list li {
       background: #fdfdfd;
@@ -140,24 +127,16 @@
       font-size: 0.9em;
       line-height: 1.5;
       border: 1px solid #eee;
-      border-left: 5px solid var(--ssv-green);
     }
 
-    .small-info {
-      font-size: 0.75em;
-      color: #888;
-      margin-top: 10px;
-    }
-
+    .small-info { font-size: 0.75em; color: #888; margin-top: 10px; }
     #login { text-align: center; }
     #login input { margin-bottom: 12px; }
-
   </style>
 </head>
 <body>
 
 <header>
-  <!-- Hier wird das Logo direkt aus deinem lokalen Ordner geladen -->
   <img src="WhatsApp-Image-2019-10-02-at-16.27.34-1024x1024.jpeg" alt="SSV Logo"> 
   <div>
     <h2>SSV Schmidhausen</h2>
@@ -174,7 +153,6 @@
 
 <div class="container" id="app" style="display:none;">
   <h3>Neuer Eintrag</h3>
-
   <label for="datum">Datum *</label>
   <input id="datum" type="date">
 
@@ -201,7 +179,6 @@
   <input id="bemerkung" placeholder="Sonstiges...">
 
   <p class="small-info">* Pflichtfelder</p>
-
   <button id="saveBtn">Eintrag Speichern</button>
 
   <h3 style="margin-top: 40px;">Meine Einträge</h3>
@@ -209,36 +186,67 @@
 </div>
 
 <script>
-// --- LOGIK BLEIBT 1:1 ERHALTEN ---
 const client = window.supabase.createClient(
   "https://zgpjnjttafrpjcswpaff.supabase.co",
   "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
 );
 
+// --- HILFSFUNKTION: XSS SCHUTZ ---
+function escapeHTML(str) {
+  if (!str) return "";
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// --- LOGOUT TIMER (5 MINUTEN) ---
+let idleTimer;
+function resetIdleTimer() {
+  clearTimeout(idleTimer);
+  // 300.000 ms = 5 Minuten
+  idleTimer = setTimeout(autoLogout, 300000);
+}
+
+async function autoLogout() {
+  await client.auth.signOut();
+  alert("Du wurdest wegen Inaktivität automatisch abgemeldet.");
+  location.reload(); // Seite neu laden für sauberen Reset
+}
+
+// Events, die den Timer zurücksetzen
+function setupIdleCounter() {
+  window.onload = resetIdleTimer;
+  window.onmousemove = resetIdleTimer;
+  window.onmousedown = resetIdleTimer;
+  window.ontouchstart = resetIdleTimer;
+  window.onclick = resetIdleTimer;
+  window.onkeypress = resetIdleTimer;
+}
+
+// --- LOGIN ---
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await client.auth.signInWithPassword({
-    email,
-    password
-  });
+  const { error } = await client.auth.signInWithPassword({ email, password });
 
   if (error) {
     if (error.message.toLowerCase().includes("email")) {
-      alert("Fehler: Die E-Mail-Adresse ist falsch oder nicht registriert.");
-    } else if (error.message.toLowerCase().includes("invalid login credentials") || error.message.toLowerCase().includes("password")) {
-      alert("Fehler: Das Passwort ist nicht korrekt.");
+      alert("Fehler: E-Mail falsch.");
+    } else if (error.message.toLowerCase().includes("credential") || error.message.toLowerCase().includes("password")) {
+      alert("Fehler: Passwort falsch.");
     } else {
       alert("Login-Fehler: " + error.message);
     }
   } else {
     document.getElementById("login").style.display = "none";
     document.getElementById("app").style.display = "block";
+    setupIdleCounter(); // Timer erst nach Login starten
     loadEntries();
   }
 }
 
+// --- SPEICHERN ---
 async function save() {
   const datumRaw = document.getElementById("datum").value;
   const stand = document.getElementById("stand").value;
@@ -255,30 +263,26 @@ async function save() {
     heute.setHours(0, 0, 0, 0);
 
     if (gewähltesDatum.getTime() > heute.getTime()) {
-      alert("Fehler: Du kannst keine Einträge für die Zukunft erstellen!");
+      alert("Fehler: Keine Zukunftseinträge!");
       return;
     }
 
     const wochentag = gewähltesDatum.getDay();
     const erlaubteTage = [0, 3, 5]; 
-
     if (!erlaubteTage.includes(wochentag)) {
-      const tageNamen = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-      alert("Der gewählte Tag ist ein " + tageNamen[wochentag] + ". \nEinträge sind nur für Mittwoch, Freitag oder Sonntag erlaubt!");
+      alert("Einträge nur Mi, Fr oder So erlaubt!");
       return;
     }
   }
 
   if (!datumRaw || !stand || !disziplin || !waffe || !aufsicht) {
-    alert("Bitte fülle alle Pflichtfelder aus (Datum, Stand-Typ, Disziplin, Waffe und Aufsicht).");
+    alert("Pflichtfelder fehlen!");
     return;
   }
 
   const { data: { user } } = await client.auth.getUser();
-  const userEmail = user.email.toLowerCase();
-
-  if (userEmail === "gast@ssv.de" && gastName === "") {
-    alert("Achtung: Als Gast-Account musst du den Namen des Gastschützen angeben!");
+  if (user.email.toLowerCase() === "gast@ssv.de" && gastName === "") {
+    alert("Gast-Name fehlt!");
     return;
   }
 
@@ -296,13 +300,14 @@ async function save() {
   if (error) {
     alert("Fehler: " + error.message);
   } else {
-    alert("Eintrag erfolgreich gespeichert!");
+    alert("Erfolgreich gespeichert!");
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
     loadEntries();
   }
 }
 
+// --- LADEN (MIT SICHERER ANZEIGE) ---
 async function loadEntries() {
   const { data, error } = await client
     .from("entries")
@@ -316,8 +321,14 @@ async function loadEntries() {
 
   data.forEach(e => {
     const li = document.createElement("li");
-    const gast = e.gastschuetze ? ` | <b>Gast:</b> ${e.gastschuetze}` : "";
-    li.innerHTML = `<strong>${e.datum}</strong>${gast}<br><small>${e.schiessstand} | ${e.disziplin} | ${e.waffe}</small>`;
+    // Alle Werte werden durch escapeHTML geschleust
+    const safeDatum = escapeHTML(e.datum);
+    const safeGast = e.gastschuetze ? ` | <b>Gast:</b> ${escapeHTML(e.gastschuetze)}` : "";
+    const safeStand = escapeHTML(e.schiessstand);
+    const safeDisz = escapeHTML(e.disziplin);
+    const safeWaffe = escapeHTML(e.waffe);
+
+    li.innerHTML = `<strong>${safeDatum}</strong>${safeGast}<br><small>${safeStand} | ${safeDisz} | ${safeWaffe}</small>`;
     list.appendChild(li);
   });
 }
