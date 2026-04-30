@@ -64,38 +64,46 @@ async function login() {
   }
 }
 
-// SPEICHERN mit Pflichtfeld-Check
+// SPEICHERN mit striktem Pflichtfeld-Check
 async function save() {
-  // Pflichtfelder abrufen
-  const datum = document.getElementById("datum").value;
-  const stand = document.getElementById("stand").value;
-  const disziplin = document.getElementById("disziplin").value;
-  const waffe = document.getElementById("waffe").value;
-  const aufsicht = document.getElementById("aufsicht").value;
+  // Werte holen und Leerzeichen am Anfang/Ende entfernen (.trim())
+  const datum = document.getElementById("datum").value.trim();
+  const stand = document.getElementById("stand").value.trim();
+  const disziplin = document.getElementById("disziplin").value.trim();
+  const waffe = document.getElementById("waffe").value.trim();
+  const aufsicht = document.getElementById("aufsicht").value.trim();
+  
+  // Diese beiden dürfen leer sein
+  const gast = document.getElementById("gastschuetze").value.trim();
+  const bemerkung = document.getElementById("bemerkung").value.trim();
 
-  // Validierung: Wenn eines dieser Felder leer ist, Popup zeigen und abbrechen
-  if (!datum || !stand || !disziplin || !waffe || !aufsicht) {
-    alert("Bitte fülle alle Pflichtfelder aus (Datum, Schießstand, Disziplin, Waffe und Aufsicht).");
-    return; // Funktion hier beenden
+  // DEBUG: Falls es immer noch nicht geht, schau in die F12-Konsole
+  console.log("Prüfe Felder:", { datum, stand, disziplin, waffe, aufsicht });
+
+  // Validierung: Prüfen ob die Strings leer sind
+  if (datum === "" || stand === "" || disziplin === "" || waffe === "" || aufsicht === "") {
+    alert("Halt! Du hast wichtige Felder vergessen. Bitte fülle Datum, Schießstand, Disziplin, Waffe und Aufsicht aus.");
+    return; // STOPPT das Speichern hier sofort
   }
 
   const user = (await client.auth.getUser()).data.user;
 
+  // Wenn wir hier ankommen, sind alle Pflichtfelder befüllt
   const { error } = await client.from("entries").insert([{
     user_id: user.id,
     datum: datum,
-    gastschuetze: document.getElementById("gastschuetze").value, // Optional
+    gastschuetze: gast,
     schiessstand: stand,
     disziplin: disziplin,
     waffe: waffe,
     aufsicht: aufsicht,
-    bemerkung: document.getElementById("bemerkung").value // Optional
+    bemerkung: bemerkung
   }]);
 
   if (error) {
     alert("Fehler beim Speichern: " + error.message);
   } else {
-    // Felder nach Erfolg leeren
+    // Felder nach Erfolg leeren (optional, außer die Pflichtfelder)
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
     alert("Eintrag erfolgreich gespeichert!");
