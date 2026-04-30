@@ -94,26 +94,32 @@ async function save() {
   const bemerkung = document.getElementById("bemerkung").value.trim();
 
   // --- PRÜFUNG: ZUKUNFT ---
-  if (datumRaw) {
-    const gewähltesDatum = new Date(datumRaw);
+  // --- PRÜFUNG: DATUM (Zukunft & Wochentage) ---
+if (datumRaw) {
+    // Wir zerlegen das Datum händisch, um Zeitzonen-Probleme zu vermeiden
+    const [jahr, monat, tag] = datumRaw.split('-').map(Number);
+    const gewähltesDatum = new Date(jahr, monat - 1, tag); // Monate sind 0-basiert
+    
+    // Aktuelles Datum holen und Uhrzeit komplett entfernen
     const heute = new Date();
-    heute.setHours(0, 0, 0, 0); // Uhrzeit auf Null setzen für reinen Datumsvergleich
+    heute.setHours(0, 0, 0, 0);
 
-    if (gewähltesDatum > heute) {
+    // 1. Check: Keine Zukunft (Vergleich der Millisekunden)
+    if (gewähltesDatum.getTime() > heute.getTime()) {
       alert("Fehler: Du kannst keine Einträge für die Zukunft erstellen!");
       return;
     }
-  
-  // 2. Check: Nur Mittwoch (3), Freitag (5) und Sonntag (0)
-    // getDay() gibt 0 für Sonntag, 1 für Montag ... 3 für Mittwoch usw. zurück.
+
+    // 2. Check: Nur Mittwoch (3), Freitag (5) und Sonntag (0)
     const wochentag = gewähltesDatum.getDay();
     const erlaubteTage = [0, 3, 5]; // 0=So, 3=Mi, 5=Fr
 
     if (!erlaubteTage.includes(wochentag)) {
-      alert("Fehler: Einträge sind nur für unsere Öffnungstage erlaubt (Mittwoch, Freitag oder Sonntag)!");
+      const tageNamen = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+      alert("Der gewählte Tag ist ein " + tageNamen[wochentag] + ". \nEinträge sind nur für Mittwoch, Freitag oder Sonntag erlaubt!");
       return;
     }
-  }
+}
 
   // --- ALLGEMEINE PFLICHTFELDER ---
   if (!datumRaw || !stand || !disziplin || !waffe || !aufsicht) {
