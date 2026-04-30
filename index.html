@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Schießnachweis</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<h2>Schießnachweis</h2>
+
+<div id="login">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Passwort">
+  <button id="loginBtn">Login</button>
+</div>
+
+<div id="app" style="display:none;">
+  <h3>Neuer Eintrag</h3>
+
+  <input id="datum" type="date"><br>
+  <input id="stand" placeholder="Schießstand"><br>
+  <input id="disziplin" placeholder="Disziplin"><br>
+  <input id="waffe" placeholder="Waffe/Kaliber"><br>
+  <input id="aufsicht" placeholder="Aufsicht"><br>
+  <input id="bemerkung" placeholder="Bemerkung"><br>
+
+  <button id="saveBtn">Speichern</button>
+
+  <h3>Meine Einträge</h3>
+  <ul id="list"></ul>
+</div>
+
+<script>
+const client = window.supabase.createClient(
+  "https://zgpjnjttafrpjcswpaff.supabase.co",
+  "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
+);
+
+// LOGIN
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await client.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+  } else {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    loadEntries();
+  }
+}
+
+// SPEICHERN
+async function save() {
+  const user = (await client.auth.getUser()).data.user;
+
+  const { error } = await client.from("entries").insert([{
+    user_id: user.id,
+    datum: document.getElementById("datum").value,
+    schiessstand: document.getElementById("stand").value,
+    disziplin: document.getElementById("disziplin").value,
+    waffe: document.getElementById("waffe").value,
+    aufsicht: document.getElementById("aufsicht").value,
+    bemerkung: document.getElementById("bemerkung").value
+  }]);
+
+  if (error) {
+    alert("Fehler: " + error.message);
+  } else {
+    loadEntries();
+  }
+}
+
+// LADEN
+async function loadEntries() {
+  const { data, error } = await client
+    .from("entries")
+    .select("*")
+    .order("datum", { ascending: false });
+
+  if (error) return;
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = `${e.datum} | ${e.disziplin} | ${e.waffe}`;
+    list.appendChild(li);
+  });
+}
+
+// BUTTONS
+document.getElementById("loginBtn").addEventListener("click", login);
+document.getElementById("saveBtn").addEventListener("click", save);
+</script>
+
+</body>
+</html>
