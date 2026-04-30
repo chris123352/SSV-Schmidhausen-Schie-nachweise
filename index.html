@@ -18,13 +18,32 @@
 <div id="app" style="display:none;">
   <h3>Neuer Eintrag</h3>
 
+  <label for="datum">Datum: *</label><br>
   <input id="datum" type="date"><br>
-  <input id="gastschuetze" placeholder="Name Gastschütze (Optional)"><br> 
-  <input id="stand" placeholder="Schießstand"><br>
-  <input id="disziplin" placeholder="Disziplin"><br>
-  <input id="waffe" placeholder="Waffe/Kaliber"><br>
-  <input id="aufsicht" placeholder="Aufsicht"><br>
-  <input id="bemerkung" placeholder="Bemerkung (Optional)"><br>
+
+  <label for="gastschuetze">Name Gastschütze: (Pflicht für Gäste)</label><br>
+  <input id="gastschuetze" placeholder="Vor- und Nachname"><br> 
+
+  <label for="stand">Schießstand: *</label><br>
+  <select id="stand">
+    <option value="">-- Bitte wählen --</option>
+    <option value="Kurzwaffe">Kurzwaffe</option>
+    <option value="Langwaffe">Langwaffe</option>
+  </select><br>
+
+  <label for="disziplin">Disziplin: *</label><br>
+  <input id="disziplin" placeholder="z.B. WT4.1"><br>
+
+  <label for="waffe">Waffe/Kaliber: *</label><br>
+  <input id="waffe" placeholder="z.B. CZ Shadow 9mm"><br>
+
+  <label for="aufsicht">Aufsicht: *</label><br>
+  <input id="aufsicht" placeholder="Name der Aufsicht"><br>
+
+  <label for="bemerkung">Bemerkung: (Optional)</label><br>
+  <input id="bemerkung" placeholder="Sonstiges..."><br>
+
+  <p><small>* Pflichtfelder</small></p>
 
   <button id="saveBtn">Speichern</button>
 
@@ -66,35 +85,55 @@ async function login() {
 
 // SPEICHERN mit Gast-Sonderregel
 async function save() {
-  // Werte holen und trimmen
-  const datum = document.getElementById("datum").value.trim();
-  const stand = document.getElementById("stand").value.trim();
+  const datumRaw = document.getElementById("datum").value;
+  const stand = document.getElementById("stand").value;
   const disziplin = document.getElementById("disziplin").value.trim();
   const waffe = document.getElementById("waffe").value.trim();
   const aufsicht = document.getElementById("aufsicht").value.trim();
   const gastName = document.getElementById("gastschuetze").value.trim();
   const bemerkung = document.getElementById("bemerkung").value.trim();
 
-  // 1. Allgemeine Pflichtfelder prüfen (für alle User)
-  if (!datum || !stand || !disziplin || !waffe || !aufsicht) {
-    alert("Bitte fülle alle Pflichtfelder aus (Datum, Schießstand, Disziplin, Waffe und Aufsicht).");
+  // --- PRÜFUNG: ZUKUNFT ---
+  if (datumRaw) {
+    const gewähltesDatum = new Date(datumRaw);
+    const heute = new Date();
+    heute.setHours(0, 0, 0, 0); // Uhrzeit auf Null setzen für reinen Datumsvergleich
+
+    if (gewähltesDatum > heute) {
+      alert("Fehler: Du kannst keine Einträge für die Zukunft erstellen!");
+      return;
+    }
+  
+  // 2. Check: Nur Mittwoch (3), Freitag (5) und Sonntag (0)
+    // getDay() gibt 0 für Sonntag, 1 für Montag ... 3 für Mittwoch usw. zurück.
+    const wochentag = gewähltesDatum.getDay();
+    const erlaubteTage = [0, 3, 5]; // 0=So, 3=Mi, 5=Fr
+
+    if (!erlaubteTage.includes(wochentag)) {
+      alert("Fehler: Einträge sind nur für unsere Öffnungstage erlaubt (Mittwoch, Freitag oder Sonntag)!");
+      return;
+    }
+  }
+
+  // --- ALLGEMEINE PFLICHTFELDER ---
+  if (!datumRaw || !stand || !disziplin || !waffe || !aufsicht) {
+    alert("Bitte fülle alle Pflichtfelder aus (Datum, Stand-Typ, Disziplin, Waffe und Aufsicht).");
     return;
   }
 
-  // User-Daten abrufen, um die E-Mail zu prüfen
+  // --- GAST-REGEL ---
   const { data: { user } } = await client.auth.getUser();
   const userEmail = user.email.toLowerCase();
 
-  // 2. SPEZIELLE REGEL: Wenn der User Gast@ssv.de ist, MUSS der Gastname ausgefüllt sein
   if (userEmail === "gast@ssv.de" && gastName === "") {
-    alert("Achtung: Als Gast musst du zwingend den Namen des Gastschützen angeben!");
+    alert("Achtung: Als Gast-Account musst du den Namen des Gastschützen angeben!");
     return;
   }
 
-  // Wenn alles okay ist -> Speichern
+  // --- SPEICHERN ---
   const { error } = await client.from("entries").insert([{
     user_id: user.id,
-    datum: datum,
+    datum: datumRaw,
     gastschuetze: gastName,
     schiessstand: stand,
     disziplin: disziplin,
@@ -104,12 +143,12 @@ async function save() {
   }]);
 
   if (error) {
-    alert("Fehler beim Speichern: " + error.message);
+    alert("Fehler: " + error.message);
   } else {
-    // Felder leeren (außer Datum evtl.)
+    alert("Eintrag erfolgreich gespeichert!");
+    // Felder zurücksetzen (außer Datum und Stand für schnellere Eingabe)
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
-    alert("Eintrag erfolgreich gespeichert!");
     loadEntries();
   }
 }
