@@ -64,35 +64,38 @@ async function login() {
   }
 }
 
-// SPEICHERN mit striktem Pflichtfeld-Check
+// SPEICHERN mit Gast-Sonderregel
 async function save() {
-  // Werte holen und Leerzeichen am Anfang/Ende entfernen (.trim())
+  // Werte holen und trimmen
   const datum = document.getElementById("datum").value.trim();
   const stand = document.getElementById("stand").value.trim();
   const disziplin = document.getElementById("disziplin").value.trim();
   const waffe = document.getElementById("waffe").value.trim();
   const aufsicht = document.getElementById("aufsicht").value.trim();
-  
-  // Diese beiden dürfen leer sein
-  const gast = document.getElementById("gastschuetze").value.trim();
+  const gastName = document.getElementById("gastschuetze").value.trim();
   const bemerkung = document.getElementById("bemerkung").value.trim();
 
-  // DEBUG: Falls es immer noch nicht geht, schau in die F12-Konsole
-  console.log("Prüfe Felder:", { datum, stand, disziplin, waffe, aufsicht });
-
-  // Validierung: Prüfen ob die Strings leer sind
-  if (datum === "" || stand === "" || disziplin === "" || waffe === "" || aufsicht === "") {
-    alert("Halt! Du hast wichtige Felder vergessen. Bitte fülle Datum, Schießstand, Disziplin, Waffe und Aufsicht aus.");
-    return; // STOPPT das Speichern hier sofort
+  // 1. Allgemeine Pflichtfelder prüfen (für alle User)
+  if (!datum || !stand || !disziplin || !waffe || !aufsicht) {
+    alert("Bitte fülle alle Pflichtfelder aus (Datum, Schießstand, Disziplin, Waffe und Aufsicht).");
+    return;
   }
 
-  const user = (await client.auth.getUser()).data.user;
+  // User-Daten abrufen, um die E-Mail zu prüfen
+  const { data: { user } } = await client.auth.getUser();
+  const userEmail = user.email.toLowerCase();
 
-  // Wenn wir hier ankommen, sind alle Pflichtfelder befüllt
+  // 2. SPEZIELLE REGEL: Wenn der User Gast@ssv.de ist, MUSS der Gastname ausgefüllt sein
+  if (userEmail === "gast@ssv.de" && gastName === "") {
+    alert("Achtung: Als Gast musst du zwingend den Namen des Gastschützen angeben!");
+    return;
+  }
+
+  // Wenn alles okay ist -> Speichern
   const { error } = await client.from("entries").insert([{
     user_id: user.id,
     datum: datum,
-    gastschuetze: gast,
+    gastschuetze: gastName,
     schiessstand: stand,
     disziplin: disziplin,
     waffe: waffe,
@@ -103,7 +106,7 @@ async function save() {
   if (error) {
     alert("Fehler beim Speichern: " + error.message);
   } else {
-    // Felder nach Erfolg leeren (optional, außer die Pflichtfelder)
+    // Felder leeren (außer Datum evtl.)
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
     alert("Eintrag erfolgreich gespeichert!");
