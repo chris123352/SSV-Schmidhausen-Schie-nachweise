@@ -19,6 +19,7 @@
   <h3>Neuer Eintrag</h3>
 
   <input id="datum" type="date"><br>
+  <input id="gastschuetze" placeholder="Name Gastschütze"><br> 
   <input id="stand" placeholder="Schießstand"><br>
   <input id="disziplin" placeholder="Disziplin"><br>
   <input id="waffe" placeholder="Waffe/Kaliber"><br>
@@ -37,7 +38,7 @@ const client = window.supabase.createClient(
   "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
 );
 
-// LOGIN
+// LOGIN (Unverändert)
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -56,13 +57,14 @@ async function login() {
   }
 }
 
-// SPEICHERN
+// SPEICHERN (Erweitert um gastschuetze)
 async function save() {
   const user = (await client.auth.getUser()).data.user;
 
   const { error } = await client.from("entries").insert([{
     user_id: user.id,
     datum: document.getElementById("datum").value,
+    gastschuetze: document.getElementById("gastschuetze").value, // NEU
     schiessstand: document.getElementById("stand").value,
     disziplin: document.getElementById("disziplin").value,
     waffe: document.getElementById("waffe").value,
@@ -73,11 +75,13 @@ async function save() {
   if (error) {
     alert("Fehler: " + error.message);
   } else {
+    // Felder leeren nach Speichern
+    document.getElementById("gastschuetze").value = "";
     loadEntries();
   }
 }
 
-// LADEN
+// LADEN (Erweitert für Anzeige)
 async function loadEntries() {
   const { data, error } = await client
     .from("entries")
@@ -91,7 +95,9 @@ async function loadEntries() {
 
   data.forEach(e => {
     const li = document.createElement("li");
-    li.textContent = `${e.datum} | ${e.disziplin} | ${e.waffe}`;
+    // Anzeige angepasst: Datum | Gastschütze | Disziplin | Waffe
+    const gast = e.gastschuetze ? ` | Gast: ${e.gastschuetze}` : "";
+    li.textContent = `${e.datum}${gast} | ${e.disziplin} | ${e.waffe}`;
     list.appendChild(li);
   });
 }
