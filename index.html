@@ -2,62 +2,219 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Schießnachweis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schießnachweis - SSV Schmidhausen</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      /* Ein etwas dunkleres, satteres Grün */
+      --ssv-green: #1b7a3d;
+      --ssv-yellow: #ffcc00; 
+      --ssv-light: #f0f2f0;
+      --ssv-white: #ffffff;
+      --ssv-text: #2c3e50;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--ssv-light);
+      color: var(--ssv-text);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      background-color: var(--ssv-green);
+      color: var(--ssv-white);
+      width: 100%;
+      padding: 15px 0;
+      text-align: center;
+      border-bottom: 4px solid var(--ssv-yellow);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Das Logo im Header */
+    header img {
+      height: 50px; /* Etwas größer für bessere Sichtbarkeit */
+      width: auto;
+      margin-right: 15px;
+      border-radius: 50%; /* Macht das Logo rund, falls gewünscht */
+      background: white; /* Weißer Hintergrund, falls das Logo transparent ist */
+      padding: 2px;
+    }
+
+    header div {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+
+    h2, h3 {
+      margin: 5px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    h2 { font-size: 1.2em; line-height: 1; }
+    h3 { font-size: 1.1em; color: var(--ssv-green); border-bottom: 2px solid var(--ssv-yellow); padding-bottom: 5px; display: inline-block; }
+
+    .container {
+      width: 92%;
+      max-width: 480px;
+      background: var(--ssv-white);
+      margin: 20px 0;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+    }
+
+    label {
+      display: block;
+      margin-top: 18px;
+      font-weight: 600;
+      font-size: 0.85em;
+      color: #555;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 16px; /* Wichtig gegen Auto-Zoom auf Mobilgeräten */
+      background-color: #fcfcfc;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--ssv-green);
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(27, 122, 61, 0.1);
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      margin-top: 25px;
+      background-color: var(--ssv-green);
+      color: var(--ssv-white);
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    button:hover {
+      background-color: #145c2e;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    #list {
+      list-style: none;
+      padding: 0;
+      margin-top: 20px;
+    }
+
+    #list li {
+      background: #fdfdfd;
+      margin-bottom: 10px;
+      padding: 15px;
+      border-left: 5px solid var(--ssv-green);
+      border-radius: 6px;
+      font-size: 0.9em;
+      line-height: 1.5;
+      border: 1px solid #eee;
+      border-left: 5px solid var(--ssv-green);
+    }
+
+    .small-info {
+      font-size: 0.75em;
+      color: #888;
+      margin-top: 10px;
+    }
+
+    #login { text-align: center; }
+    #login input { margin-bottom: 12px; }
+
+  </style>
 </head>
 <body>
 
-<h2>Schießnachweis</h2>
+<header>
+  <!-- Hier wird das Logo direkt aus deinem lokalen Ordner geladen -->
+  <img src="WhatsApp-Image-2019-10-02-at-16.27.34-1024x1024.jpeg" alt="SSV Logo"> 
+  <div>
+    <h2>SSV Schmidhausen</h2>
+    <span style="font-size: 0.8em; opacity: 0.9;">Digitaler Schießnachweis</span>
+  </div>
+</header>
 
-<div id="login">
-  <input id="email" placeholder="Email">
+<div class="container" id="login">
+  <h3>Mitglied Login</h3>
+  <input id="email" type="email" placeholder="E-Mail Adresse">
   <input id="password" type="password" placeholder="Passwort">
-  <button id="loginBtn">Login</button>
+  <button id="loginBtn">Anmelden</button>
 </div>
 
-<div id="app" style="display:none;">
+<div class="container" id="app" style="display:none;">
   <h3>Neuer Eintrag</h3>
 
-  <label for="datum">Datum: *</label><br>
-  <input id="datum" type="date"><br>
+  <label for="datum">Datum *</label>
+  <input id="datum" type="date">
 
-  <label for="gastschuetze">Name Gastschütze: (Pflicht für Gäste)</label><br>
-  <input id="gastschuetze" placeholder="Vor- und Nachname"><br> 
+  <label for="gastschuetze">Name Gastschütze (Pflicht für Gäste)</label>
+  <input id="gastschuetze" placeholder="Vor- und Nachname"> 
 
-  <label for="stand">Schießstand: *</label><br>
+  <label for="stand">Schießstand *</label>
   <select id="stand">
     <option value="">-- Bitte wählen --</option>
     <option value="Kurzwaffe">Kurzwaffe</option>
     <option value="Langwaffe">Langwaffe</option>
-  </select><br>
+  </select>
 
-  <label for="disziplin">Disziplin: *</label><br>
-  <input id="disziplin" placeholder="z.B. WT4.1"><br>
+  <label for="disziplin">Disziplin *</label>
+  <input id="disziplin" placeholder="z.B. WT4.1">
 
-  <label for="waffe">Waffe/Kaliber: *</label><br>
-  <input id="waffe" placeholder="z.B. CZ Shadow 9mm"><br>
+  <label for="waffe">Waffe/Kaliber *</label>
+  <input id="waffe" placeholder="z.B. CZ Shadow 9mm">
 
-  <label for="aufsicht">Aufsicht: *</label><br>
-  <input id="aufsicht" placeholder="Name der Aufsicht"><br>
+  <label for="aufsicht">Aufsicht *</label>
+  <input id="aufsicht" placeholder="Name der Aufsicht">
 
-  <label for="bemerkung">Bemerkung: (Optional)</label><br>
-  <input id="bemerkung" placeholder="Sonstiges..."><br>
+  <label for="bemerkung">Bemerkung (Optional)</label>
+  <input id="bemerkung" placeholder="Sonstiges...">
 
-  <p><small>* Pflichtfelder</small></p>
+  <p class="small-info">* Pflichtfelder</p>
 
-  <button id="saveBtn">Speichern</button>
+  <button id="saveBtn">Eintrag Speichern</button>
 
-  <h3>Meine Einträge</h3>
+  <h3 style="margin-top: 40px;">Meine Einträge</h3>
   <ul id="list"></ul>
 </div>
 
 <script>
+// --- LOGIK BLEIBT 1:1 ERHALTEN ---
 const client = window.supabase.createClient(
   "https://zgpjnjttafrpjcswpaff.supabase.co",
   "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
 );
 
-// LOGIN mit getrennten Fehlermeldungen
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
@@ -68,7 +225,6 @@ async function login() {
   });
 
   if (error) {
-    // Supabase gibt je nach Fehler unterschiedliche Texte zurück
     if (error.message.toLowerCase().includes("email")) {
       alert("Fehler: Die E-Mail-Adresse ist falsch oder nicht registriert.");
     } else if (error.message.toLowerCase().includes("invalid login credentials") || error.message.toLowerCase().includes("password")) {
@@ -83,7 +239,6 @@ async function login() {
   }
 }
 
-// SPEICHERN mit Gast-Sonderregel
 async function save() {
   const datumRaw = document.getElementById("datum").value;
   const stand = document.getElementById("stand").value;
@@ -93,41 +248,32 @@ async function save() {
   const gastName = document.getElementById("gastschuetze").value.trim();
   const bemerkung = document.getElementById("bemerkung").value.trim();
 
-  // --- PRÜFUNG: ZUKUNFT ---
-  // --- PRÜFUNG: DATUM (Zukunft & Wochentage) ---
-if (datumRaw) {
-    // Wir zerlegen das Datum händisch, um Zeitzonen-Probleme zu vermeiden
+  if (datumRaw) {
     const [jahr, monat, tag] = datumRaw.split('-').map(Number);
-    const gewähltesDatum = new Date(jahr, monat - 1, tag); // Monate sind 0-basiert
-    
-    // Aktuelles Datum holen und Uhrzeit komplett entfernen
+    const gewähltesDatum = new Date(jahr, monat - 1, tag); 
     const heute = new Date();
     heute.setHours(0, 0, 0, 0);
 
-    // 1. Check: Keine Zukunft (Vergleich der Millisekunden)
     if (gewähltesDatum.getTime() > heute.getTime()) {
       alert("Fehler: Du kannst keine Einträge für die Zukunft erstellen!");
       return;
     }
 
-    // 2. Check: Nur Mittwoch (3), Freitag (5) und Sonntag (0)
     const wochentag = gewähltesDatum.getDay();
-    const erlaubteTage = [0, 3, 5]; // 0=So, 3=Mi, 5=Fr
+    const erlaubteTage = [0, 3, 5]; 
 
     if (!erlaubteTage.includes(wochentag)) {
       const tageNamen = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
       alert("Der gewählte Tag ist ein " + tageNamen[wochentag] + ". \nEinträge sind nur für Mittwoch, Freitag oder Sonntag erlaubt!");
       return;
     }
-}
+  }
 
-  // --- ALLGEMEINE PFLICHTFELDER ---
   if (!datumRaw || !stand || !disziplin || !waffe || !aufsicht) {
     alert("Bitte fülle alle Pflichtfelder aus (Datum, Stand-Typ, Disziplin, Waffe und Aufsicht).");
     return;
   }
 
-  // --- GAST-REGEL ---
   const { data: { user } } = await client.auth.getUser();
   const userEmail = user.email.toLowerCase();
 
@@ -136,7 +282,6 @@ if (datumRaw) {
     return;
   }
 
-  // --- SPEICHERN ---
   const { error } = await client.from("entries").insert([{
     user_id: user.id,
     datum: datumRaw,
@@ -152,7 +297,6 @@ if (datumRaw) {
     alert("Fehler: " + error.message);
   } else {
     alert("Eintrag erfolgreich gespeichert!");
-    // Felder zurücksetzen (außer Datum und Stand für schnellere Eingabe)
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
     loadEntries();
@@ -172,8 +316,8 @@ async function loadEntries() {
 
   data.forEach(e => {
     const li = document.createElement("li");
-    const gast = e.gastschuetze ? ` | Gast: ${e.gastschuetze}` : "";
-    li.textContent = `${e.datum}${gast} | ${e.disziplin} | ${e.waffe}`;
+    const gast = e.gastschuetze ? ` | <b>Gast:</b> ${e.gastschuetze}` : "";
+    li.innerHTML = `<strong>${e.datum}</strong>${gast}<br><small>${e.schiessstand} | ${e.disziplin} | ${e.waffe}</small>`;
     list.appendChild(li);
   });
 }
