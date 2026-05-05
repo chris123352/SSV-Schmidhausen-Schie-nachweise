@@ -1,405 +1,102 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
-    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; 
-    connect-src 'self' https://zgpjnjttafrpjcswpaff.supabase.co; 
-    img-src 'self' data:; 
-    style-src 'self' 'unsafe-inline';">
-    
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Schießnachweis - SSV Schmidhausen</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-
-  <style>
-    :root {
-      --ssv-green: #1b7a3d;
-      --ssv-yellow: #ffcc00; 
-      --ssv-light: #f0f2f0;
-      --ssv-white: #ffffff;
-      --ssv-text: #2c3e50;
-      --ssv-red: #ac2b1a;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--ssv-light);
-      color: var(--ssv-text);
-      margin: 0; padding: 0;
-      display: flex; flex-direction: column; align-items: center;
-    }
-
-    header {
-      background-color: var(--ssv-green);
-      color: var(--ssv-white);
-      width: 100%;
-      padding: 15px 0;
-      text-align: center;
-      border-bottom: 4px solid var(--ssv-yellow);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      display: flex; justify-content: center; align-items: center;
-    }
-
-    header img { height: 50px; width: auto; margin-right: 15px; border-radius: 50%; background: white; padding: 2px; }
-    header div { display: flex; flex-direction: column; text-align: left; }
-
-    h2, h3 { margin: 5px 0; text-transform: uppercase; letter-spacing: 0.5px; }
-    h2 { font-size: 1.2em; line-height: 1; }
-    h3 { font-size: 1.1em; color: var(--ssv-green); }
-    
-    .container {
-      width: 92%;
-      max-width: 480px;
-      background: var(--ssv-white);
-      margin: 20px 0;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-      box-sizing: border-box;
-      display: none;
-    }
-
-    /* User Badge oben rechts in der App-Maske */
-    .app-header-row {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--ssv-yellow);
-      padding-bottom: 10px; flex-wrap: wrap;
-    }
-
-    #userBadge {
-      display: flex; background: #f8f9fa; border: 1px solid #ced4da;
-      padding: 8px; border-radius: 8px; flex-direction: column; align-items: flex-end; min-width: 120px;
-    }
-
-    #displayMemberName { font-weight: bold; font-size: 0.75em; color: var(--ssv-green); word-break: break-all; }
-
-    #logoutBtn {
-      background-color: var(--ssv-red); color: white; border: none;
-      padding: 4px 10px; border-radius: 4px; font-size: 0.7em; cursor: pointer;
-      margin-top: 4px; width: auto; font-weight: bold;
-    }
-
-    #loginArea { display: block; }
-    label { display: block; margin-top: 18px; font-weight: 600; font-size: 0.85em; color: #555; }
-    input, select { width: 100%; padding: 12px; margin-top: 6px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; background-color: #fcfcfc; }
-
-    .main-btn { width: 100%; padding: 16px; margin-top: 25px; background-color: var(--ssv-green); color: var(--ssv-white); border: none; border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-    .main-btn:hover { background-color: #145c2e; }
-    
-    .nav-bar { width: 92%; max-width: 480px; margin-top: 15px; display: none; gap: 10px; }
-    .nav-bar button { flex: 1; padding: 10px; font-size: 0.8em; background-color: #666; color: white; border: none; border-radius: 8px; cursor: pointer; }
-    .nav-bar button.active { background-color: var(--ssv-green); }
-
-    /* --- ADMIN APPROVE BUTTON DESIGN --- */
-    .btn-approve {
-      background-color: var(--ssv-green);
-      color: white; border: none; padding: 12px; border-radius: 8px;
-      font-size: 0.9em; font-weight: bold; text-transform: uppercase;
-      cursor: pointer; margin-top: 12px; width: 100%;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-      transition: all 0.2s ease;
-    }
-    .btn-approve:hover { background-color: #145c2e; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    .btn-approve:active { transform: scale(0.98); }
-
-    .status-badge { float: right; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; }
-    .status-offen { background: #ffeeba; color: #856404; }
-    .status-bestaetigt { background: #d4edda; color: #155724; }
-
-    #list li, #adminList li { background: #fdfdfd; margin-bottom: 10px; padding: 15px; border-left: 5px solid var(--ssv-green); border-radius: 6px; font-size: 0.9em; border: 1px solid #eee; list-style: none; }
-    #list, #adminList { padding: 0; }
-  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://zgpjnjttafrpjcswpaff.supabase.co; img-src 'self' data:; style-src 'self' 'unsafe-inline';">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Schießnachweis - SSV Schmidhausen</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{--g:#1b7a3d;--y:#ffcc00;--l:#f0f2f0;--w:#fff;--t:#2c3e50;--r:#ac2b1a}body{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--l);color:var(--t);margin:0;padding:0;display:flex;flex-direction:column;align-items:center}
+header{background:var(--g);color:var(--w);width:100%;padding:15px 0;text-align:center;border-bottom:4px solid var(--y);box-shadow:0 2px 8px rgba(0,0,0,.2);display:flex;justify-content:center;align-items:center}
+header img{height:50px;width:auto;margin-right:15px;border-radius:50%;background:#fff;padding:2px}header div{display:flex;flex-direction:column;text-align:left}h2,h3{margin:5px 0;text-transform:uppercase;letter-spacing:.5px}h2{font-size:1.2em;line-height:1}h3{font-size:1.1em;color:var(--g)}
+._c{width:92%;max-width:480px;background:var(--w);margin:20px 0;padding:25px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.08);box-sizing:border-box;display:none}
+._hr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;border-bottom:2px solid var(--y);padding-bottom:10px;flex-wrap:wrap}#_ub{display:flex;background:#f8f9fa;border:1px solid #ced4da;padding:8px;border-radius:8px;flex-direction:column;align-items:flex-end;min-width:120px}
+#_dmn{font-weight:700;font-size:.75em;color:var(--g);word-break:break-all}#_lo{background:var(--r);color:#fff;border:none;padding:4px 10px;border-radius:4px;font-size:.7em;cursor:pointer;margin-top:4px;width:auto;font-weight:700}
+#_la{display:block}label{display:block;margin-top:18px;font-weight:600;font-size:.85em;color:#555}input,select{width:100%;padding:12px;margin-top:6px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;font-size:16px;background-color:#fcfcfc}
+._mb{width:100%;padding:16px;margin-top:25px;background:var(--g);color:var(--w);border:none;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;transition:background .2s}._mb:hover{background:#145c2e}
+._nb{width:92%;max-width:480px;margin-top:15px;display:none;gap:10px}._nb button{flex:1;padding:10px;font-size:.8em;background:#666;color:#fff;border:none;border-radius:8px;cursor:pointer}._nb button._ax{background:var(--g)}
+._ba{background:var(--g);color:#fff;border:none;padding:12px;border-radius:8px;font-size:.9em;font-weight:700;text-transform:uppercase;cursor:pointer;margin-top:12px;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.15);transition:all .2s ease}._ba:hover{background:#145c2e;box-shadow:0 4px 8px rgba(0,0,0,.2)}._ba:active{transform:scale(.98)}
+._sb{float:right;font-size:.7em;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:700}._s0{background:#ffeeba;color:#856404}._s1{background:#d4edda;color:#155724}
+#_ls li,#_al li{background:#fdfdfd;margin-bottom:10px;padding:15px;border-left:5px solid var(--g);border-radius:6px;font-size:.9em;border:1px solid #eee;list-style:none}#_ls,#_al{padding:0}
+</style>
 </head>
 <body>
 
 <header>
-  <img src="WhatsApp-Image-2019-10-02-at-16.27.34-1024x1024.jpeg" alt="SSV Logo"> 
-  <div>
-    <h2>SSV Schmidhausen</h2>
-    <span style="font-size: 0.8em; opacity: 0.9;">Digitaler Schießnachweis</span>
-  </div>
+<img src="WhatsApp-Image-2019-10-02-at-16.27.34-1024x1024.jpeg" alt="SSV Logo">
+<div><h2>SSV Schmidhausen</h2><span style="font-size: 0.8em; opacity: 0.9;">Digitaler Schießnachweis</span></div>
 </header>
 
-<!-- LOGIN -->
-<div class="container" id="loginArea">
-  <h3>Mitglied Login</h3>
-  <input id="email" type="email" placeholder="E-Mail Adresse">
-  <input id="password" type="password" placeholder="Passwort">
-  <button id="loginBtn" class="main-btn">Anmelden</button>
-  <p style="text-align: center; margin-top: 15px;">
-    <a href="#" id="forgotPassword" style="color: var(--ssv-green); font-size: 0.8em; text-decoration: none;">Passwort vergessen?</a>
-  </p>
+<div class="_c" id="_la">
+<h3>Mitglied Login</h3>
+<input id="_e" type="email" placeholder="E-Mail Adresse">
+<input id="_p" type="password" placeholder="Passwort">
+<button id="_lb" class="_mb">Anmelden</button>
+<p style="text-align: center; margin-top: 15px;"><a href="#" id="_fp" style="color: var(--g); font-size: 0.8em; text-decoration: none;">Passwort vergessen?</a></p>
 </div>
 
-<div class="nav-bar" id="adminNav">
-  <button id="navUser" class="active">Meine Einträge</button>
-  <button id="navAdmin">Admin-Zentrale</button>
+<div class="_nb" id="_an">
+<button id="_nu" class="_ax">Meine Einträge</button>
+<button id="_na">Admin-Zentrale</button>
 </div>
 
-<!-- APP (USER) -->
-<div class="container" id="app">
-  <div class="app-header-row">
-    <h3>Neuer Eintrag</h3>
-    <div id="userBadge">
-      <span id="displayMemberName"></span>
-      <button id="logoutBtn">Logout</button>
-    </div>
-  </div>
-
-  <label for="datum">Datum *</label>
-  <input id="datum" type="date">
-
-  <label for="gastschuetze">Name Gastschütze (Pflicht für Gäste)</label>
-  <input id="gastschuetze" placeholder="Vor- und Nachname"> 
-
-  <label for="stand">Schießstand *</label>
-  <select id="stand">
-    <option value="">-- Bitte wählen --</option>
-    <option value="Kurzwaffe">Kurzwaffe</option>
-    <option value="Langwaffe">Langwaffe</option>
-    <option value="Lufthalle">Lufthalle</option>
-  </select>
-
-  <label for="disziplin">Disziplin *</label>
-  <input id="disziplin" placeholder="z.B. WT4.1">
-
-  <label for="waffe">Waffe/Kaliber *</label>
-  <input id="waffe" placeholder="z.B. CZ Shadow 9mm">
-
-  <label for="aufsicht">Aufsicht *</label>
-  <input id="aufsicht" placeholder="Name der Aufsicht">
-
-  <label for="bemerkung">Bemerkung (Optional)</label>
-  <input id="bemerkung" placeholder="Sonstiges...">
-
-  <button id="saveBtn" class="main-btn">Eintrag Speichern</button>
-
-  <h3 id="meineEintraegeTitel" style="margin-top: 40px; border-bottom: 2px solid var(--ssv-yellow); padding-bottom:5px;">Meine Einträge</h3>
-  <ul id="list"></ul>
+<div class="_c" id="_a">
+<div class="_hr"><h3>Neuer Eintrag</h3><div id="_ub"><span id="_dmn"></span><button id="_lo">Logout</button></div></div>
+<label for="_d">Datum *</label><input id="_d" type="date">
+<label for="_g">Name Gastschütze (Pflicht für Gäste)</label><input id="_g" placeholder="Vor- und Nachname">
+<label for="_s">Schießstand *</label><select id="_s"><option value="">-- Bitte wählen --</option><option value="Kurzwaffe">Kurzwaffe</option><option value="Langwaffe">Langwaffe</option><option value="Lufthalle">Lufthalle</option></select>
+<label for="_di">Disziplin *</label><input id="_di" placeholder="z.B. WT4.1">
+<label for="_w">Waffe/Kaliber *</label><input id="_w" placeholder="z.B. CZ Shadow 9mm">
+<label for="_au">Aufsicht *</label><input id="_au" placeholder="Name der Aufsicht">
+<label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges...">
+<button id="_sb" class="_mb">Eintrag Speichern</button>
+<h3 id="_met" style="margin-top: 40px; border-bottom: 2px solid var(--y); padding-bottom:5px;">Meine Einträge</h3>
+<ul id="_ls"></ul>
 </div>
 
-<!-- ADMIN VIEW -->
-<div class="container" id="adminView">
-  <h3>Export & Verwaltung</h3>
-  <label>Mitglied filtern:</label>
-  <select id="memberSelect"><option value="all">-- Alle Mitglieder --</option></select>
-  
-  <div style="display: flex; gap: 10px; margin-top:10px;">
-    <button id="btnExcel" style="flex:1; background:#1d6f42; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">Excel</button>
-    <button id="btnPdf" style="flex:1; background:var(--ssv-red); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">PDF</button>
-  </div>
-
-  <h3 style="margin-top: 30px;">Offene Freigaben</h3>
-  <ul id="adminList"></ul>
+<div class="_c" id="_av">
+<h3>Export & Verwaltung</h3>
+<label>Mitglied filtern:</label><select id="_ms"><option value="all">-- Alle Mitglieder --</option></select>
+<div style="display: flex; gap: 10px; margin-top:10px;">
+<button id="_xe" style="flex:1; background:#1d6f42; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">Excel</button>
+<button id="_pdf" style="flex:1; background:var(--r); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">PDF</button>
+</div>
+<h3 style="margin-top: 30px;">Offene Freigaben</h3>
+<ul id="_al"></ul>
 </div>
 
 <script>
-const client = window.supabase.createClient(
-  "https://zgpjnjttafrpjcswpaff.supabase.co",
-  "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
-);
-
-let isAdmin = false;
-let idleTimer;
-
-// --- INITIALISIERUNG ---
-window.onload = async () => {
-  const { data: { session } } = await client.auth.getSession();
-  if (session) {
-    showApp(session.user);
-  }
-};
-
-function escapeHTML(str) {
-  if (!str) return "";
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// --- LOGIN & SESSION ---
-async function login() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error) return alert("Login fehlgeschlagen.");
-  showApp(data.user);
-}
-
-async function logout() {
-  await client.auth.signOut();
-  location.reload();
-}
-
-async function showApp(user) {
-  document.getElementById("loginArea").style.display = "none";
-  document.getElementById("app").style.display = "block";
-  document.getElementById("displayMemberName").textContent = user.email;
-  
-  const { data: profile } = await client.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
-  if (profile && profile.is_admin) {
-    isAdmin = true;
-    document.getElementById("adminNav").style.display = "flex";
-    loadMemberList();
-  }
-
-  setupIdleCounter();
-  loadEntries();
-}
-
-// --- INAKTIVITÄTS-TIMER ---
-function resetIdleTimer() {
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(async () => {
-    const { data: { session } } = await client.auth.getSession();
-    if(session) {
-      await client.auth.signOut();
-      alert("Inaktivität: Du wurdest automatisch abgemeldet.");
-      location.reload();
-    }
-  }, 300000); // 5 Minuten
-}
-
-function setupIdleCounter() {
-  ['mousedown', 'mousemove', 'keypress', 'touchstart'].forEach(evt => 
-    window.addEventListener(evt, resetIdleTimer)
-  );
-  resetIdleTimer();
-}
-
-// --- SPEICHERN ---
-async function save() {
-  const f = {
-    datum: document.getElementById("datum"),
-    stand: document.getElementById("stand"),
-    disziplin: document.getElementById("disziplin"),
-    waffe: document.getElementById("waffe"),
-    aufsicht: document.getElementById("aufsicht"),
-    gast: document.getElementById("gastschuetze"),
-    bem: document.getElementById("bemerkung")
-  };
-
-  if (!f.datum.value || !f.stand.value || !f.disziplin.value || !f.waffe.value || !f.aufsicht.value) {
-    return alert("Pflichtfelder fehlen!");
-  }
-
-  const { data: { user } } = await client.auth.getUser();
-  const { error } = await client.from("entries").insert([{
-    user_id: user.id,
-    datum: f.datum.value,
-    gastschuetze: f.gast.value.trim(),
-    schiessstand: f.stand.value,
-    disziplin: f.disziplin.value.trim(),
-    waffe: f.waffe.value.trim(),
-    aufsicht: f.aufsicht.value.trim(),
-    bemerkung: f.bem.value.trim(),
-    status: 'offen'
-  }]);
-
-  if (error) alert("Fehler beim Speichern.");
-  else {
-    alert("Erfolgreich gespeichert!");
-    // Reset aller Felder
-    Object.values(f).forEach(el => el.value = "");
-    loadEntries();
-  }
-}
-
-// --- DATEN LADEN ---
-async function loadEntries() {
-  const { data: { user } } = await client.auth.getUser();
-  if (user.email === "gast@ssv.de") {
-    document.getElementById("meineEintraegeTitel").style.display = "none";
-    document.getElementById("list").style.display = "none";
-    return;
-  }
-  const { data } = await client.from("entries").select("*").eq('user_id', user.id).order("datum", { ascending: false });
-  const list = document.getElementById("list");
-  list.innerHTML = "";
-  if (data) data.forEach(e => {
-    const li = document.createElement("li");
-    const sCls = e.status === 'bestätigt' ? 'status-bestaetigt' : 'status-offen';
-    li.innerHTML = `<span class="status-badge ${sCls}">${e.status || 'offen'}</span>
-      <strong>${e.datum}</strong><br><small>${escapeHTML(e.disziplin)} | ${escapeHTML(e.waffe)}</small>`;
-    list.appendChild(li);
-  });
-}
-
-// --- ADMIN LOGIK ---
-async function loadMemberList() {
-  const { data } = await client.from('profiles').select('id, email');
-  const sel = document.getElementById("memberSelect");
-  if(!data) return;
-  sel.innerHTML = '<option value="all">-- Alle Mitglieder --</option>';
-  data.forEach(m => {
-    let opt = document.createElement("option");
-    opt.value = m.id; opt.textContent = m.email;
-    sel.appendChild(opt);
-  });
-  loadAdminApprovalList();
-}
-
-async function loadAdminApprovalList() {
-  const { data: entries } = await client.from('entries').select('*').eq('status', 'offen').order('datum', {ascending: true});
-  const { data: profiles } = await client.from('profiles').select('id, email');
-  const list = document.getElementById("adminList");
-  list.innerHTML = (entries && entries.length) ? "" : "<li>Keine offenen Anfragen.</li>";
-  
-  if(entries) entries.forEach(e => {
-    const p = profiles.find(p => p.id === e.user_id);
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <strong style="color:var(--ssv-green);">${p ? p.email : 'Unbekannt'}</strong>
-        <span style="font-size:0.8em; color:#666;">${e.datum}</span>
-      </div>
-      <div style="margin: 8px 0; font-size:0.9em; line-height:1.4;">
-        <b>Waffe:</b> ${escapeHTML(e.waffe)}<br>
-        <b>Stand:</b> ${escapeHTML(e.schiessstand)} | <b>Disziplin:</b> ${escapeHTML(e.disziplin)}
-      </div>
-      <button onclick="approveEntry('${e.id}')" class="btn-approve">
-        ✓ Jetzt Freigeben
-      </button>
-    `;
-    list.appendChild(li);
-  });
-}
-
-window.approveEntry = async (id) => {
-  const { error } = await client.from('entries').update({ status: 'bestätigt' }).eq('id', id);
-  if(error) alert("Fehler bei Freigabe.");
-  else loadAdminApprovalList();
-};
-
-// --- NAVIGATION & EVENTS ---
-document.getElementById("loginBtn").onclick = login;
-document.getElementById("saveBtn").onclick = save;
-document.getElementById("logoutBtn").onclick = logout;
-
-document.getElementById("navAdmin").onclick = () => {
-  document.getElementById("app").style.display = "none";
-  document.getElementById("adminView").style.display = "block";
-  document.getElementById("navAdmin").classList.add("active");
-  document.getElementById("navUser").classList.remove("active");
-};
-
-document.getElementById("navUser").onclick = () => {
-  document.getElementById("adminView").style.display = "none";
-  document.getElementById("app").style.display = "block";
-  document.getElementById("navUser").classList.add("active");
-  document.getElementById("navAdmin").classList.remove("active");
-};
-
-document.getElementById("forgotPassword").onclick = (e) => {
-  e.preventDefault();
-  const d = prompt("Name/E-Mail für Reset-Anfrage:");
-  if(d) window.location.href = `mailto:C.Dorn1@gmx.de?subject=Reset&body=${d}`;
-};
+const _c=window.supabase.createClient("https://zgpjnjttafrpjcswpaff.supabase.co","sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX");
+let _ia=false,_it;
+window.onload=async()=>{const{data:{session:s}}=await _c.auth.getSession();if(s)_sa(s.user)};
+const _eh=s=>{if(!s)return"";const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+async function _l(){const e=document.getElementById("_e").value,p=document.getElementById("_p").value;const{data:d,error:er}=await _c.auth.signInWithPassword({email:e,password:p});if(er)return alert("Login fehlgeschlagen.");_sa(d.user)}
+async function _lo(){await _c.auth.signOut();location.reload()}
+async function _sa(u){document.getElementById("_la").style.display="none";document.getElementById("_a").style.display="block";document.getElementById("_dmn").textContent=u.email;
+const{data:p}=await _c.from('profiles').select('is_admin').eq('id',u.id).maybeSingle();if(p&&p.is_admin){_ia=true;document.getElementById("_an").style.display="flex";_lml()}
+_sic();_le()}
+function _rit(){clearTimeout(_it);_it=setTimeout(async()=>{const{data:{session:s}}=await _c.auth.getSession();if(s){await _c.auth.signOut();alert("Inaktivität: Du wurdest automatisch abgemeldet.");location.reload()}},300000)}
+function _sic(){['mousedown','mousemove','keypress','touchstart'].forEach(v=>window.addEventListener(v,_rit));_rit()}
+async function _sv(){const f={d:document.getElementById("_d"),s:document.getElementById("_s"),di:document.getElementById("_di"),w:document.getElementById("_w"),au:document.getElementById("_au"),g:document.getElementById("_g"),b:document.getElementById("_be")};
+if(!f.d.value||!f.s.value||!f.di.value||!f.w.value||!f.au.value)return alert("Pflichtfelder fehlen!");const{data:{user:u}}=await _c.auth.getUser();
+const{error:e}=await _c.from("entries").insert([{user_id:u.id,datum:f.d.value,gastschuetze:f.g.value.trim(),schiessstand:f.s.value,disziplin:f.di.value.trim(),waffe:f.w.value.trim(),aufsicht:f.au.value.trim(),bemerkung:f.b.value.trim(),status:'offen'}]);
+if(e)alert("Fehler beim Speichern.");else{alert("Erfolgreich gespeichert!");Object.values(f).forEach(x=>x.value="");_le()}}
+async function _le(){const{data:{user:u}}=await _c.auth.getUser();if(u.email==="gast@ssv.de"){document.getElementById("_met").style.display="none";document.getElementById("_ls").style.display="none";return}
+const{data:d}=await _c.from("entries").select("*").eq('user_id',u.id).order("datum",{ascending:false});const l=document.getElementById("_ls");l.innerHTML="";
+if(d)d.forEach(e=>{const i=document.createElement("li"),c=e.status==='bestätigt'?'_s1':'_s0';i.innerHTML=`<span class="_sb ${c}">${e.status||'offen'}</span><strong>${e.datum}</strong><br><small>${_eh(e.disziplin)} | ${_eh(e.waffe)}</small>`;l.appendChild(i)})}
+async function _lml(){const{data:d}=await _c.from('profiles').select('id,email');const s=document.getElementById("_ms");if(!d)return;s.innerHTML='<option value="all">-- Alle Mitglieder --</option>';d.forEach(m=>{let o=document.createElement("option");o.value=m.id;o.textContent=m.email;s.appendChild(o)});_lal()}
+async function _lal(){const{data:e}=await _c.from('entries').select('*').eq('status','offen').order('datum',{ascending:true}),{data:p}=await _c.from('profiles').select('id,email'),l=document.getElementById("_al");l.innerHTML=e?.length?"":"<li>Keine offenen Anfragen.</li>";
+if(e)e.forEach(x=>{const r=p.find(z=>z.id===x.user_id),i=document.createElement("li");
+i.innerHTML=`<div style="display: flex; justify-content: space-between; align-items: flex-start;"><strong style="color:var(--g);">${r?r.email:'Unbekannt'}</strong><span style="font-size:0.8em; color:#666;">${x.datum}</span></div>
+<div style="margin: 8px 0; font-size:0.9em; line-height:1.4;"><b>Waffe:</b> ${_eh(x.waffe)}<br><b>Stand:</b> ${_eh(x.schiessstand)} | <b>Disziplin:</b> ${_eh(x.disziplin)}</div>
+<button onclick="_ae('${x.id}')" class="_ba">✓ Jetzt Freigeben</button>`;l.appendChild(i)})}
+window._ae=async(id)=>{const{error:e}=await _c.from('entries').update({status:'bestätigt'}).eq('id',id);if(e)alert("Fehler bei Freigabe.");else _lal()};
+document.getElementById("_lb").onclick=_l;document.getElementById("_sb").onclick=_sv;document.getElementById("_lo").onclick=_lo;
+document.getElementById("_na").onclick=()=>{document.getElementById("_a").style.display="none";document.getElementById("_av").style.display="block";document.getElementById("_na").classList.add("_ax");document.getElementById("_nu").classList.remove("_ax")};
+document.getElementById("_nu").onclick=()=>{document.getElementById("_av").style.display="none";document.getElementById("_a").style.display="block";document.getElementById("_nu").classList.add("_ax");document.getElementById("_na").classList.remove("_ax")};
+document.getElementById("_fp").onclick=e=>{e.preventDefault();const d=prompt("Name/E-Mail für Reset-Anfrage:");if(d)window.location.href=`mailto:C.Dorn1@gmx.de?subject=Reset&body=${d}`};
 </script>
 </body>
 </html>
