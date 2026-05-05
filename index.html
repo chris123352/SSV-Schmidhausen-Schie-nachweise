@@ -468,6 +468,13 @@ window.approveEntry = async (id) => {
   }
 };
 
+// Hilfsfunktion, um den Namen/E-Mail aus dem Dropdown zu lesen
+function getSelectedMemberName() {
+  const select = document.getElementById("memberSelect");
+  // Gibt den Text der ausgewählten Option zurück (z.B. "test@beispiel.de")
+  return select.options[select.selectedIndex].text;
+}
+
 // --- EXPORT ---
 async function getExportData() {
   const mId = document.getElementById("memberSelect").value;
@@ -480,24 +487,36 @@ async function getExportData() {
 document.getElementById("btnExcel").onclick = async () => {
   const data = await getExportData();
   if(data.length === 0) return alert("Keine Daten zum Exportieren gefunden.");
+  
+  // Optional: E-Mail auch in Excel als erste Zeile einfügen
+  const memberName = getSelectedMemberName();
   const ws = XLSX.utils.json_to_sheet(data);
+  
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Nachweise");
-  XLSX.writeFile(wb, "SSV_Export.xlsx");
+  XLSX.writeFile(wb, `SSV_Export_${memberName}.xlsx`);
 };
 
 document.getElementById("btnPdf").onclick = async () => {
   const data = await getExportData();
   if(data.length === 0) return alert("Keine Daten zum Exportieren gefunden.");
+  
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  doc.text("SSV Schmidhausen - Schießnachweise", 14, 15);
+  
+  // Hier wird die E-Mail dynamisch hinzugefügt
+  const memberName = getSelectedMemberName();
+  const headerText = `SSV Schmidhausen - Schießnachweise: ${memberName}`;
+  
+  doc.text(headerText, 14, 15);
+  
   doc.autoTable({
-    head: [['Datum', 'Stand', 'Disziplin', 'Waffe', 'Status']],
-    body: data.map(e => [e.datum, e.schiessstand, e.disziplin, e.waffe, e.status]),
+    head: [['Datum', 'Gastschütze', 'Stand', 'Disziplin', 'Waffe', 'Aufsicht', 'Status']],
+    body: data.map(e => [e.datum, e.gastschuetze, e.schiessstand, e.disziplin, e.waffe, e.aufsicht, e.status]),
     startY: 25
   });
-  doc.save("SSV_Nachweise.pdf");
+  
+  doc.save(`SSV_Nachweise_${memberName}.pdf`);
 };
 
 // --- NAVIGATION & FORGOT ---
