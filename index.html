@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Schießnachweis - SSV Schmidhausen</title>
+  
+  <!-- Bibliotheken für Supabase & Export -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     :root {
       --ssv-green: #1b7a3d;
@@ -12,6 +18,7 @@
       --ssv-light: #f0f2f0;
       --ssv-white: #ffffff;
       --ssv-text: #2c3e50;
+      --ssv-red: #ac2b1a;
     }
 
     body {
@@ -33,7 +40,7 @@
       text-align: center;
       border-bottom: 4px solid var(--ssv-yellow);
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      display: flex;      justify-content: center;
+      display: flex; justify-content: center;
       align-items: center;
     }
 
@@ -60,7 +67,7 @@
 
     h2 { font-size: 1.2em; line-height: 1; }
     h3 { font-size: 1.1em; color: var(--ssv-green); border-bottom: 2px solid var(--ssv-yellow); padding-bottom: 5px; display: inline-block; }
-
+    
     .container {
       width: 92%;
       max-width: 480px;
@@ -70,6 +77,11 @@
       border-radius: 12px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.08);
       box-sizing: border-box;
+      display: none;
+    }
+
+    #loginArea {
+      display: block;
     }
 
     label {
@@ -91,13 +103,6 @@
       background-color: #fcfcfc;
     }
 
-    input:focus, select:focus {
-      outline: none;
-      border-color: var(--ssv-green);
-      background-color: #fff;
-      box-shadow: 0 0 0 3px rgba(27, 122, 61, 0.1);
-    }
-
     button {
       width: 100%;
       padding: 16px;
@@ -110,28 +115,41 @@
       font-weight: bold;
       cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
     button:hover { background-color: #145c2e; }
-    button:active { transform: translateY(1px); }
+    
+    .nav-bar {
+      width: 92%;
+      max-width: 480px;
+      margin-top: 15px;
+      gap: 10px;
+    }
 
-    #list { list-style: none; padding: 0; margin-top: 20px; }
+    .nav-bar button { margin-top: 0; flex: 1; padding: 10px; font-size: 0.8em; background-color: #666; }
+    .nav-bar button.active { background-color: var(--ssv-green); }
 
-    #list li {
+    .status-badge {
+      float: right;
+      font-size: 0.7em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .status-offen { background: #ffeeba; color: #856404; }
+    .status-bestaetigt { background: #d4edda; color: #155724; }
+
+    #list li, #adminList li {
       background: #fdfdfd;
       margin-bottom: 10px;
       padding: 15px;
       border-left: 5px solid var(--ssv-green);
       border-radius: 6px;
       font-size: 0.9em;
-      line-height: 1.5;
       border: 1px solid #eee;
+      list-style: none;
     }
-
-    .small-info { font-size: 0.75em; color: #888; margin-top: 10px; }
-    #login { text-align: center; }
-    #login input { margin-bottom: 12px; }
+    #list, #adminList { padding: 0; }
   </style>
 </head>
 <body>
@@ -144,14 +162,25 @@
   </div>
 </header>
 
-<div class="container" id="login">
+<!-- LOGIN -->
+<div class="container" id="loginArea">
   <h3>Mitglied Login</h3>
   <input id="email" type="email" placeholder="E-Mail Adresse">
   <input id="password" type="password" placeholder="Passwort">
   <button id="loginBtn">Anmelden</button>
+  <p style="text-align: center; margin-top: 15px;">
+    <a href="#" id="forgotPassword" style="color: var(--ssv-green); font-size: 0.8em; text-decoration: none;">Passwort vergessen?</a>
+  </p>
 </div>
 
-<div class="container" id="app" style="display:none;">
+<!-- NAV - EXPLIZIT VERSTECKT BEIM START -->
+<div class="nav-bar" id="adminNav" style="display: none;">
+  <button id="navUser" class="active">Meine Einträge</button>
+  <button id="navAdmin">Admin-Zentrale</button>
+</div>
+
+<!-- APP (USER) -->
+<div class="container" id="app">
   <h3>Neuer Eintrag</h3>
   <label for="datum">Datum *</label>
   <input id="datum" type="date">
@@ -178,11 +207,28 @@
   <label for="bemerkung">Bemerkung (Optional)</label>
   <input id="bemerkung" placeholder="Sonstiges...">
 
-  <p class="small-info">* Pflichtfelder</p>
+  <p style="font-size: 0.75em; color: #888; margin-top: 10px;">* Pflichtfelder</p>
   <button id="saveBtn">Eintrag Speichern</button>
 
-  <h3 style="margin-top: 40px;">Meine Einträge</h3>
+  <h3 id="meineEintraegeTitel" style="margin-top: 40px;">Meine Einträge</h3>
   <ul id="list"></ul>
+</div>
+
+<!-- ADMIN VIEW -->
+<div class="container" id="adminView">
+  <h3>Export & Verwaltung</h3>
+  <label>Mitglied filtern:</label>
+  <select id="memberSelect">
+    <option value="all">-- Alle Mitglieder --</option>
+  </select>
+  
+  <div style="display: flex; gap: 10px;">
+    <button id="btnExcel" style="background:#1d6f42; font-size: 0.8em; padding: 10px;">Excel</button>
+    <button id="btnPdf" style="background:var(--ssv-red); font-size: 0.8em; padding: 10px;">PDF</button>
+  </div>
+
+  <h3 style="margin-top: 30px;">Offene Freigaben</h3>
+  <ul id="adminList"></ul>
 </div>
 
 <script>
@@ -191,7 +237,9 @@ const client = window.supabase.createClient(
   "sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX"
 );
 
-// --- HILFSFUNKTION: XSS SCHUTZ ---
+let isAdmin = false;
+let idleTimer;
+
 function escapeHTML(str) {
   if (!str) return "";
   const div = document.createElement('div');
@@ -199,28 +247,21 @@ function escapeHTML(str) {
   return div.innerHTML;
 }
 
-// --- LOGOUT TIMER (5 MINUTEN) ---
-let idleTimer;
 function resetIdleTimer() {
   clearTimeout(idleTimer);
-  // 300.000 ms = 5 Minuten
   idleTimer = setTimeout(autoLogout, 300000);
 }
 
 async function autoLogout() {
   await client.auth.signOut();
   alert("Du wurdest wegen Inaktivität automatisch abgemeldet.");
-  location.reload(); // Seite neu laden für sauberen Reset
+  location.reload();
 }
 
-// Events, die den Timer zurücksetzen
 function setupIdleCounter() {
-  window.onload = resetIdleTimer;
-  window.onmousemove = resetIdleTimer;
-  window.onmousedown = resetIdleTimer;
-  window.ontouchstart = resetIdleTimer;
-  window.onclick = resetIdleTimer;
-  window.onkeypress = resetIdleTimer;
+  ['mousedown', 'mousemove', 'keypress', 'touchstart'].forEach(evt => 
+    window.addEventListener(evt, resetIdleTimer)
+  );
 }
 
 // --- LOGIN ---
@@ -228,22 +269,45 @@ async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { error } = await client.auth.signInWithPassword({ email, password });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
 
   if (error) {
-    if (error.message.toLowerCase().includes("email")) {
-      alert("Fehler: E-Mail falsch.");
-    } else if (error.message.toLowerCase().includes("credential") || error.message.toLowerCase().includes("password")) {
-      alert("Fehler: Passwort falsch.");
-    } else {
-      alert("Login-Fehler: " + error.message);
-    }
-  } else {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    setupIdleCounter(); // Timer erst nach Login starten
-    loadEntries();
+    alert("Fehler: Login-Daten inkorrekt.");
+    return;
   }
+
+  const user = data.user;
+
+  document.getElementById("loginArea").style.display = "none";
+  document.getElementById("app").style.display = "block";
+
+  // ADMIN CHECK
+  try {
+    const { data: profile, error: profileError } = await client
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!profileError && profile) {
+      isAdmin = profile.is_admin === true;
+    } else {
+      isAdmin = false;
+    }
+
+    if (isAdmin) {
+      document.getElementById("adminNav").style.display = "flex";
+      loadMemberList();
+    } else {
+      document.getElementById("adminNav").style.display = "none";
+    }
+
+  } catch (err) {
+    isAdmin = false;
+  }
+
+  setupIdleCounter();
+  loadEntries();
 }
 
 // --- SPEICHERN ---
@@ -259,31 +323,20 @@ async function save() {
   if (datumRaw) {
     const [jahr, monat, tag] = datumRaw.split('-').map(Number);
     const gewähltesDatum = new Date(jahr, monat - 1, tag); 
-    const heute = new Date();
-    heute.setHours(0, 0, 0, 0);
-
-    if (gewähltesDatum.getTime() > heute.getTime()) {
-      alert("Fehler: Keine Zukunftseinträge!");
-      return;
-    }
-
-    const wochentag = gewähltesDatum.getDay();
-    const erlaubteTage = [0, 3, 5]; 
-    if (!erlaubteTage.includes(wochentag)) {
-      alert("Einträge nur Mi, Fr oder So erlaubt!");
-      return;
+    const heute = new Date(); heute.setHours(0,0,0,0);
+    if (gewähltesDatum > heute) { alert("Keine Zukunftseinträge!"); return; }
+    if (![0, 3, 5].includes(gewähltesDatum.getDay())) {
+      alert("Einträge nur Mi, Fr oder So erlaubt!"); return;
     }
   }
 
   if (!datumRaw || !stand || !disziplin || !waffe || !aufsicht) {
-    alert("Pflichtfelder fehlen!");
-    return;
+    alert("Pflichtfelder fehlen!"); return;
   }
 
   const { data: { user } } = await client.auth.getUser();
-  if (user.email.toLowerCase() === "gast@ssv.de" && gastName === "") {
-    alert("Gast-Name fehlt!");
-    return;
+  if (user.email.toLowerCase() === "gast@ssv.de" && !gastName) {
+    alert("Gast-Name fehlt!"); return;
   }
 
   const { error } = await client.from("entries").insert([{
@@ -294,48 +347,181 @@ async function save() {
     disziplin: disziplin,
     waffe: waffe,
     aufsicht: aufsicht,
-    bemerkung: bemerkung
+    bemerkung: bemerkung,
+    status: 'offen'
   }]);
 
-  if (error) {
-    alert("Fehler: " + error.message);
-  } else {
-    alert("Erfolgreich gespeichert!");
+  if (error) alert("Fehler beim Speichern. Bitte Konsole prüfen.");
+  else {
+    alert("Erfolgreich gespeichert! Wartet auf Admin-Freigabe.");
     document.getElementById("gastschuetze").value = "";
     document.getElementById("bemerkung").value = "";
     loadEntries();
   }
 }
 
-// --- LADEN (MIT SICHERER ANZEIGE) ---
+// --- LADEN (USER) ---
 async function loadEntries() {
-  const { data, error } = await client
-    .from("entries")
-    .select("*")
-    .order("datum", { ascending: false });
+  const { data: { user } } = await client.auth.getUser();
+
+  if (user.email.toLowerCase() === "gast@ssv.de") {
+    document.getElementById("meineEintraegeTitel").style.display = "none";
+    document.getElementById("list").style.display = "none";
+    return; 
+  } else {
+    document.getElementById("meineEintraegeTitel").style.display = "block";
+    document.getElementById("list").style.display = "block";
+  }
+
+  const { data, error } = await client.from("entries").select("*").eq('user_id', user.id).order("datum", { ascending: false });
 
   if (error) return;
-
   const list = document.getElementById("list");
   list.innerHTML = "";
-
   data.forEach(e => {
     const li = document.createElement("li");
-    // Alle Werte werden durch escapeHTML geschleust
-    const safeDatum = escapeHTML(e.datum);
-    const safeGast = e.gastschuetze ? ` | <b>Gast:</b> ${escapeHTML(e.gastschuetze)}` : "";
-    const safeStand = escapeHTML(e.schiessstand);
-    const safeDisz = escapeHTML(e.disziplin);
-    const safeWaffe = escapeHTML(e.waffe);
-
-    li.innerHTML = `<strong>${safeDatum}</strong>${safeGast}<br><small>${safeStand} | ${safeDisz} | ${safeWaffe}</small>`;
+    const statusClass = e.status === 'bestätigt' ? 'status-bestaetigt' : 'status-offen';
+    li.innerHTML = `
+      <span class="status-badge ${statusClass}">${e.status || 'offen'}</span>
+      <strong>${escapeHTML(e.datum)}</strong> ${e.gastschuetze ? '| Gast: '+escapeHTML(e.gastschuetze) : ''}<br>
+      <small>${escapeHTML(e.schiessstand)} | ${escapeHTML(e.disziplin)} | ${escapeHTML(e.waffe)}</small>
+    `;
     list.appendChild(li);
   });
 }
 
-document.getElementById("loginBtn").addEventListener("click", login);
-document.getElementById("saveBtn").addEventListener("click", save);
-</script>
+// --- ADMIN LOGIK ---
+async function loadMemberList() {
+  const { data } = await client.from('profiles').select('id, email');
+  const select = document.getElementById("memberSelect");
+  if(!data) return;
+  select.innerHTML = '<option value="all">-- Alle Mitglieder --</option>';
+  data.forEach(m => {
+    let opt = document.createElement("option");
+    opt.value = m.id; opt.textContent = m.email;
+    select.appendChild(opt);
+  });
+  loadAdminApprovalList();
+}
 
+// AKTUALISIERTE FUNKTION FÜR DIE ADMIN-FREIGABE
+async function loadAdminApprovalList() {
+  // 1. Hole offene Einträge aus der Tabelle 'entries'
+  const { data: entriesData, error: entriesError } = await client
+    .from('entries')
+    .select('*')
+    .eq('status', 'offen')
+    .order('datum', {ascending: true});
+
+  if (entriesError) console.error("Fehler Einträge:", entriesError);
+
+  const list = document.getElementById("adminList");
+  if(!entriesData || entriesData.length === 0) {
+    list.innerHTML = "<li>Aktuell keine offenen Anfragen.</li>";
+    return;
+  }
+
+  // 2. Profile laden (inklusive full_name für die Zuordnung)
+  const { data: profilesData } = await client.from('profiles').select('id, email');
+
+  list.innerHTML = "";
+  entriesData.forEach(e => {
+    // Profil zum Eintrag finden
+    const profile = profilesData ? profilesData.find(p => p.id === e.user_id) : null;
+    const emailStr = profile ? profile.email : 'Unbekannt';
+    
+    const li = document.createElement("li");
+    // Hier werden die zusätzlichen Spalten gastschuetze, disziplin und aufsicht eingefügt
+    li.innerHTML = `
+      <div style="margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+        <span style="color: var(--ssv-green); font-weight: bold;">${escapeHTML(emailStr)}</span> 
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em;">
+        <div><b>Datum:</b> ${escapeHTML(e.datum)}</div>
+        <div><b>Stand:</b> ${escapeHTML(e.schiessstand)}</div>
+        <div><b>Disziplin:</b> ${escapeHTML(e.disziplin)}</div>
+        <div><b>Waffe:</b> ${escapeHTML(e.waffe)}</div>
+        <div><b>Aufsicht:</b> ${escapeHTML(e.aufsicht)}</div>
+        ${e.gastschuetze ? `<div style="grid-column: span 2; color: var(--ssv-red);"><b>Gastschütze:</b> ${escapeHTML(e.gastschuetze)}</div>` : ''}
+      </div>
+      ${e.bemerkung ? `<div style="margin-top: 5px; font-size: 0.8em; font-style: italic;">Bemerkung: ${escapeHTML(e.bemerkung)}</div>` : ''}
+      <button style="width:auto; padding:8px 15px; font-size:0.75em; margin-top:10px;" onclick="approveEntry('${e.id}')">
+        Bestätigen
+      </button>
+    `;
+    list.appendChild(li);
+  });
+}
+
+window.approveEntry = async (id) => {
+  // 1. Status in der Datenbank auf 'bestätigt' setzen
+  const { error } = await client.from('entries').update({ status: 'bestätigt' }).eq('id', id);
+  
+  if (error) {
+    alert("Fehler beim Bestätigen. Besitzt du die Rechte?");
+    console.error(error);
+  } else {
+    // 2. WICHTIG: Die Liste sofort neu laden
+    // Dadurch wird die Abfrage erneut ausgeführt und der bestätigte 
+    // Eintrag (der nun nicht mehr 'offen' ist) verschwindet aus der Ansicht.
+    loadAdminApprovalList();
+  }
+};
+
+// --- EXPORT ---
+async function getExportData() {
+  const mId = document.getElementById("memberSelect").value;
+  let q = client.from('entries').select('datum, gastschuetze, schiessstand, disziplin, waffe, aufsicht, status');
+  if(mId !== 'all') q = q.eq('user_id', mId);
+  const { data } = await q.order('datum', {ascending: false});
+  return data || [];
+}
+
+document.getElementById("btnExcel").onclick = async () => {
+  const data = await getExportData();
+  if(data.length === 0) return alert("Keine Daten zum Exportieren gefunden.");
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Nachweise");
+  XLSX.writeFile(wb, "SSV_Export.xlsx");
+};
+
+document.getElementById("btnPdf").onclick = async () => {
+  const data = await getExportData();
+  if(data.length === 0) return alert("Keine Daten zum Exportieren gefunden.");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text("SSV Schmidhausen - Schießnachweise", 14, 15);
+  doc.autoTable({
+    head: [['Datum', 'Stand', 'Disziplin', 'Waffe', 'Status']],
+    body: data.map(e => [e.datum, e.schiessstand, e.disziplin, e.waffe, e.status]),
+    startY: 25
+  });
+  doc.save("SSV_Nachweise.pdf");
+};
+
+// --- NAVIGATION & FORGOT ---
+document.getElementById("navAdmin").onclick = () => {
+  document.getElementById("app").style.display = "none";
+  document.getElementById("adminView").style.display = "block";
+  document.getElementById("navAdmin").classList.add("active");
+  document.getElementById("navUser").classList.remove("active");
+};
+document.getElementById("navUser").onclick = () => {
+  document.getElementById("adminView").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("navUser").classList.add("active");
+  document.getElementById("navAdmin").classList.remove("active");
+};
+
+document.getElementById("forgotPassword").onclick = (e) => {
+  e.preventDefault();
+  const details = prompt("Name und E-Mail für Passwort-Reset:");
+  if(details) window.location.href = `mailto:C.Dorn1@gmx.de?subject=Reset&body=${details}`;
+};
+
+document.getElementById("loginBtn").onclick = login;
+document.getElementById("saveBtn").onclick = save;
+</script>
 </body>
 </html>
