@@ -10,32 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
-        :root{--g:#1b7a3d;--y:#ffcc00;--l:#f0f2f0;--w:#fff;--t:#2c3e50;--r:#ac2b1a}
-        body{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--l);color:var(--t);margin:0;padding:0;display:flex;flex-direction:column;align-items:center}
-        header{background:var(--g);color:var(--w);width:100%;padding:15px 0;text-align:center;border-bottom:4px solid var(--y);box-shadow:0 2px 8px rgba(0,0,0,.2);display:flex;justify-content:center;align-items:center}
-        header img{height:50px;width:auto;margin-right:15px;border-radius:50%;background:#fff;padding:2px}
-        header div{display:flex;flex-direction:column;text-align:left}
-        h2,h3{margin:5px 0;text-transform:uppercase;letter-spacing:.5px}
-        h2{font-size:1.2em;line-height:1}h3{font-size:1.1em;color:var(--g)}
-        ._c{width:92%;max-width:480px;background:var(--w);margin:20px 0;padding:25px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.08);box-sizing:border-box;display:none}
-        ._hr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;border-bottom:2px solid var(--y);padding-bottom:10px;flex-wrap:wrap}
-        ._ub_style{display:flex;background:#f8f9fa;border:1px solid #ced4da;padding:8px;border-radius:8px;flex-direction:column;align-items:flex-end;min-width:120px}
-        ._dmn_text{font-weight:700;font-size:.75em;color:var(--g);word-break:break-all}
-        ._lo_btn{background:var(--r);color:#fff;border:none;padding:8px 35px;border-radius:4px;font-size:.8em;cursor:pointer;margin-top:4px;width:100%;min-width:150px;font-weight:700;transition: opacity 0.2s;}
-        ._lo_btn:hover{opacity: 0.9;}
-        #_la{display:block}
-        label{display:block;margin-top:18px;font-weight:600;font-size:.85em;color:#555}
-        input,select{width:100%;padding:12px;margin-top:6px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;font-size:16px;background-color:#fcfcfc}
-        ._mb{width:100%;padding:16px;margin-top:25px;background:var(--g);color:var(--w);border:none;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;transition:background .2s}
-        ._mb:hover{background:#145c2e}._mb:disabled{background:#ccc;cursor:not-allowed}
-        ._nb{width:92%;max-width:480px;margin-top:15px;display:none;gap:10px}
-        ._nb button{flex:1;padding:10px;font-size:.8em;background:#666;color:#fff;border:none;border-radius:8px;cursor:pointer}
-        ._nb button._ax{background:var(--g)}
-        ._ba{background:var(--g);color:#fff;border:none;padding:12px;border-radius:8px;font-size:.9em;font-weight:700;text-transform:uppercase;cursor:pointer;margin-top:12px;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.15)}
-        ._sb_badge{float:right;font-size:.7em;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:700}
-        ._s0{background:#ffeeba;color:#856404}._s1{background:#d4edda;color:#155724}
-        #_ls li,#_al li{background:#fdfdfd;margin-bottom:10px;padding:15px;border-left:5px solid var(--g);border-radius:6px;font-size:.9em;border:1px solid #eee;list-style:none}
-        #_ls,#_al{padding:0}
+        :root{--g:#1b7a3d;--y:#ffcc00;--l:#f0f2f0;--w:#fff;--t:#2c3e50;--r:#ac2b1a}body{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--l);color:var(--t);margin:0;padding:0;display:flex;flex-direction:column;align-items:center}header{background:var(--g);color:var(--w);width:100%;padding:15px 0;text-align:center;border-bottom:4px solid var(--y);box-shadow:0 2px 8px rgba(0,0,0,.2);display:flex;justify-content:center;align-items:center}header img{height:50px;width:auto;margin-right:15px;border-radius:50%;background:#fff;padding:2px}header div{display:flex;flex-direction:column;text-align:left}h2,h3{margin:5px 0;text-transform:uppercase;letter-spacing:.5px}h2{font-size:1.2em;line-height:1}h3{font-size:1.1em;color:var(--g)}._c{width:92%;max-width:480px;background:var(--w);margin:20px 0;padding:25px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.08);box-sizing:border-box;display:none}._hr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;border-bottom:2px solid var(--y);padding-bottom:10px;flex-wrap:wrap}._ub_style{display:flex;background:#f8f9fa;border:1px solid #ced4da;padding:8px;border-radius:8px;flex-direction:column;align-items:flex-end;min-width:120px}._dmn_text{font-weight:700;font-size:.75em;color:var(--g);word-break:break-all}._lo_btn{background:var(--r);color:#fff;border:none;padding:8px 35px;border-radius:4px;font-size:.8em;cursor:pointer;margin-top:4px;width:100%;min-width:150px;font-weight:700;transition: opacity 0.2s;}._lo_btn:hover{opacity: 0.9;}#_la{display:block}label{display:block;margin-top:18px;font-weight:600;font-size:.85em;color:#555}input,select{width:100%;padding:12px;margin-top:6px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;font-size:16px;background-color:#fcfcfc}._mb{width:100%;padding:16px;margin-top:25px;background:var(--g);color:var(--w);border:none;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;transition:background .2s}._mb:hover{background:#145c2e}._mb:disabled{background:#ccc;cursor:not-allowed}._nb{width:92%;max-width:480px;margin-top:15px;display:none;gap:10px}._nb button{flex:1;padding:10px;font-size:.8em;background:#666;color:#fff;border:none;border-radius:8px;cursor:pointer}._nb button._ax{background:var(--g)}._ba{background:var(--g);color:#fff;border:none;padding:12px;border-radius:8px;font-size:.9em;font-weight:700;text-transform:uppercase;cursor:pointer;margin-top:12px;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.15)}._sb_badge{float:right;font-size:.7em;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:700}._s0{background:#ffeeba;color:#856404}._s1{background:#d4edda;color:#155724}#_ls li,#_al li{background:#fdfdfd;margin-bottom:10px;padding:15px;border-left:5px solid var(--g);border-radius:6px;font-size:.9em;border:1px solid #eee;list-style:none}#_ls,#_al{padding:0}
     </style>
 </head>
 <body>
@@ -45,115 +20,19 @@
     <div><h2>SSV Schmidhausen</h2><span style="font-size: 0.8em; opacity: 0.9;">Digitaler Schießnachweis</span></div>
 </header>
 
-<div class="_c" id="_la">
-    <h3>Mitglied Login</h3>
-    <input id="_e" type="email" placeholder="E-Mail Adresse">
-    <input id="_p" type="password" placeholder="Passwort">
-    <button id="_lb" class="_mb">Anmelden</button>
-    <p style="text-align: center; margin-top: 15px;"><a href="#" id="_fp" style="color: var(--g); font-size: 0.8em; text-decoration: none;">Passwort vergessen?</a></p>
-</div>
+<div class="_c" id="_la"><h3>Mitglied Login</h3><input id="_e" type="email" placeholder="E-Mail Adresse"><input id="_p" type="password" placeholder="Passwort"><button id="_lb" class="_mb">Anmelden</button><p style="text-align: center; margin-top: 15px;"><a href="#" id="_fp" style="color: var(--g); font-size: 0.8em; text-decoration: none;">Passwort vergessen?</a></p></div>
 
-<div class="_nb" id="_an">
-    <button id="_nu" class="_ax">Meine Einträge</button>
-    <button id="_na">Admin-Zentrale</button>
-</div>
+<div class="_nb" id="_an"><button id="_nu" class="_ax">Meine Einträge</button><button id="_na">Admin-Zentrale</button></div>
 
-<div class="_c" id="_a">
-    <div class="_hr">
-        <h3>Neuer Eintrag</h3>
-        <div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div>
-    </div>
-    <label for="_d">Datum *</label><input id="_d" type="date">
-    <label for="_g">Name Gastschütze</label><input id="_g" placeholder="Vor- und Nachname">
-    <label for="_s">Schießstand *</label><select id="_s"><option value="">-- Bitte wählen --</option><option value="Kurzwaffe">Kurzwaffe</option><option value="Langwaffe">Langwaffe</option><option value="Lufthalle">Lufthalle</option></select>
-    <label for="_di">Disziplin *</label><input id="_di" placeholder="z.B. WT4.1">
-    <label for="_w">Waffe/Kaliber *</label><input id="_w" placeholder="z.B. CZ Shadow 9mm">
-    <label for="_au">Aufsicht *</label><input id="_au" placeholder="Name der Aufsicht">
-    <label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges...">
-    <button id="_sb" class="_mb">Eintrag Speichern</button>
-    <h3 id="_met" style="margin-top: 40px; border-bottom: 2px solid var(--y); padding-bottom:5px;">Meine Einträge</h3>
-    <ul id="_ls"></ul>
-</div>
+<div class="_c" id="_a"><div class="_hr"><h3>Neuer Eintrag</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div><label for="_d">Datum *</label><input id="_d" type="date"><label for="_g">Name Gastschütze</label><input id="_g" placeholder="Vor- und Nachname"><label for="_s">Schießstand *</label><select id="_s"><option value="">-- Bitte wählen --</option><option value="Kurzwaffe">Kurzwaffe</option><option value="Langwaffe">Langwaffe</option><option value="Lufthalle">Lufthalle</option></select><label for="_di">Disziplin *</label><input id="_di" placeholder="z.B. WT4.1"><label for="_w">Waffe/Kaliber *</label><input id="_w" placeholder="z.B. CZ Shadow / 9mm"><label for="_au">Aufsicht *</label><input id="_au" placeholder="Name der Aufsicht"><label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges..."><button id="_sb" class="_mb">Eintrag Speichern</button><h3 id="_met" style="margin-top: 40px; border-bottom: 2px solid var(--y); padding-bottom:5px;">Meine Einträge</h3><ul id="_ls"></ul></div>
 
-<div class="_c" id="_av">
-    <div class="_hr">
-        <h3>Export & Freigabe</h3>
-        <div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div>
-    </div>
-    <label>Mitglied filtern:</label>
-    <select id="_ms"><option value="all">-- Alle Mitglieder --</option></select>
-    
-    <label>Zeitraum für Export *:</label>
-    <select id="_ex_period">
-        <option value="">-- Zeitraum wählen --</option>
-        <option value="6">Letzte 6 Monate</option>
-        <option value="12">Letzte 12 Monate</option>
-        <option value="all">Gesamter Zeitraum</option>
-    </select>
-
-    <div style="display: flex; gap: 10px; margin-top:10px;">
-        <button id="_xe" style="flex:1; background:#1d6f42; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">Excel</button>
-        <button id="_pdf" style="flex:1; background:var(--r); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">PDF</button>
-    </div>
-    <h3 style="margin-top: 30px;">Offene Freigaben</h3>
-    <ul id="_al"></ul>
-</div>
+<div class="_c" id="_av"><div class="_hr"><h3>Export & Freigabe</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div><label>Mitglied filtern:</label><select id="_ms"><option value="all">-- Alle Mitglieder --</option></select><label>Zeitraum für Export *:</label><select id="_ex_period"><option value="">-- Zeitraum wählen --</option><option value="6">Letzte 6 Monate</option><option value="12">Letzte 12 Monate</option><option value="all">Gesamter Zeitraum</option></select><div style="display: flex; gap: 10px; margin-top:10px;"><button id="_xe" style="flex:1; background:#1d6f42; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">Excel</button><button id="_pdf" style="flex:1; background:var(--r); color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">PDF</button></div><h3 style="margin-top: 30px;">Offene Freigaben</h3><ul id="_al"></ul></div>
 
 <script>
-// Supabase global machen, damit app.js darauf zugreifen kann!
-window._c = window.supabase.createClient("https://zgpjnjttafrpjcswpaff.supabase.co","sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX");
-
-const _clickTrack = { login: [], save: [] };
-
-// Bot-Schutz ebenfalls global machen
-window._isLimited = function(type) {
-    const now = Date.now();
-    _clickTrack[type] = _clickTrack[type].filter(t => now - t < 60000);
-    if (_clickTrack[type].length >= 3) {
-        alert("Zu viele Anfragen. Bitte warte 60 Sekunden.");
-        return true;
-    }
-    _clickTrack[type].push(now);
-    return false;
-};
-
-window.onload = async () => {
-    const { data: { session } } = await window._c.auth.getSession();
-    if (session) {
-        _loadAppScript(session.user);
-    } else {
-        document.getElementById("_lb").onclick = _handleLogin;
-    }
-};
-
-async function _handleLogin() {
-    if (window._isLimited('login')) return;
-    const e = document.getElementById("_e").value, p = document.getElementById("_p").value;
-    const { data, error } = await window._c.auth.signInWithPassword({ email: e, password: p });
-    if (error) return alert("Login fehlgeschlagen.");
-    
-    _loadAppScript(data.user);
-}
-
-function _loadAppScript(user) {
-    const script = document.createElement('script');
-    script.src = 'app.js';
-    script.onload = () => {
-        // App initialisieren (Funktion kommt aus app.js)
-        if (typeof window._initApp === 'function') {
-            window._initApp(user);
-        } else {
-            alert("Fehler beim Laden der App-Logik. Bitte lade die Seite neu.");
-        }
-    };
-    document.body.appendChild(script);
-}
-
-document.getElementById("_fp").onclick = e => {
-    e.preventDefault();
-    const d = prompt("E-Mail für Reset-Anfrage:");
-    if (d) window.location.href = `mailto:C.Dorn1@gmx.de?subject=Reset&body=${d}`;
-};
+window._c=window.supabase.createClient("https://zgpjnjttafrpjcswpaff.supabase.co","sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX");const _clickTrack={login:[],save:[]};window._isLimited=function(type){const now=Date.now();_clickTrack[type]=_clickTrack[type].filter(t=>now-t<60000);if(_clickTrack[type].length>=3){alert("Zu viele Anfragen. Bitte warte 60 Sekunden.");return true;}
+_clickTrack[type].push(now);return false;};window.onload=async()=>{const{data:{session}}=await window._c.auth.getSession();if(session){_loadAppScript(session.user);}else{document.getElementById("_lb").onclick=_handleLogin;}};async function _handleLogin(){if(window._isLimited('login'))return;const e=document.getElementById("_e").value,p=document.getElementById("_p").value;const{data,error}=await window._c.auth.signInWithPassword({email:e,password:p});if(error)return alert("Login fehlgeschlagen.");_loadAppScript(data.user);}
+function _loadAppScript(user){const script=document.createElement('script');script.src='app.js';script.onload=()=>{if(typeof window._initApp==='function'){window._initApp(user);}else{alert("Fehler beim Laden der App-Logik. Bitte lade die Seite neu.");}};document.body.appendChild(script);}
+document.getElementById("_fp").onclick=e=>{e.preventDefault();const d=prompt("E-Mail für Reset-Anfrage:");if(d)window.location.href=`mailto:C.Dorn1@gmx.de?subject=Reset&body=${d}`;};
 </script>
 </body>
 </html>
