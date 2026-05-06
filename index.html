@@ -100,10 +100,13 @@
 </div>
 
 <script>
-const _c = window.supabase.createClient("https://zgpjnjttafrpjcswpaff.supabase.co","sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX");
+// Supabase global machen, damit app.js darauf zugreifen kann!
+window._c = window.supabase.createClient("https://zgpjnjttafrpjcswpaff.supabase.co","sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX");
 
 const _clickTrack = { login: [], save: [] };
-function _isLimited(type) {
+
+// Bot-Schutz ebenfalls global machen
+window._isLimited = function(type) {
     const now = Date.now();
     _clickTrack[type] = _clickTrack[type].filter(t => now - t < 60000);
     if (_clickTrack[type].length >= 3) {
@@ -112,169 +115,38 @@ function _isLimited(type) {
     }
     _clickTrack[type].push(now);
     return false;
-}
+};
 
 window.onload = async () => {
-    const { data: { session } } = await _c.auth.getSession();
-    if (session) _initApp(session.user);
-    else document.getElementById("_lb").onclick = _handleLogin;
+    const { data: { session } } = await window._c.auth.getSession();
+    if (session) {
+        _loadAppScript(session.user);
+    } else {
+        document.getElementById("_lb").onclick = _handleLogin;
+    }
 };
 
 async function _handleLogin() {
-    if (_isLimited('login')) return;
+    if (window._isLimited('login')) return;
     const e = document.getElementById("_e").value, p = document.getElementById("_p").value;
-    const { data, error } = await _c.auth.signInWithPassword({ email: e, password: p });
+    const { data, error } = await window._c.auth.signInWithPassword({ email: e, password: p });
     if (error) return alert("Login fehlgeschlagen.");
-    _initApp(data.user);
-}
-
-async function _initApp(u) {
-    document.getElementById("_la").style.display = "none";
-    document.getElementById("_a").style.display = "block";
-    document.querySelectorAll("._cur_user").forEach(el => el.textContent = u.email);
     
-    document.querySelectorAll("._lo_btn").forEach(btn => btn.onclick = async () => {
-        await _c.auth.signOut();
-        location.reload();
-    });
-
-    const { data: p } = await _c.from('profiles').select('is_admin').eq('id', u.id).maybeSingle();
-    if (p && p.is_admin) {
-        document.getElementById("_an").style.display = "flex";
-        _loadAdminPanel();
-    }
-    _startInactivityTimer();
-    _loadUserEntries();
-    document.getElementById("_sb").onclick = _saveEntry;
+    _loadAppScript(data.user);
 }
 
-async function _saveEntry() {
-    if (_isLimited('save')) return;
-    const f = { d: document.getElementById("_d"), s: document.getElementById("_s"), di: document.getElementById("_di"), w: document.getElementById("_w"), au: document.getElementById("_au"), g: document.getElementById("_g"), b: document.getElementById("_be") };
-    if (!f.d.value || !f.s.value || !f.di.value || !f.w.value || !f.au.value) return alert("Pflichtfelder fehlen!");
-    const { data: { user } } = await _c.auth.getUser();
-    const { error } = await _c.from("entries").insert([{ user_id: user.id, datum: f.d.value, gastschuetze: f.g.value.trim(), schiessstand: f.s.value, disziplin: f.di.value.trim(), waffe: f.w.value.trim(), aufsicht: f.au.value.trim(), bemerkung: f.b.value.trim(), status: 'offen' }]);
-    if (error) alert("Fehler beim Speichern.");
-    else { alert("Erfolgreich gespeichert!"); Object.values(f).forEach(x => x.value = ""); _loadUserEntries(); }
-}
-
-async function _loadUserEntries() {
-    const { data: { user } } = await _c.auth.getUser();
-    if (user.email === "gast@ssv.de") return;
-    const { data } = await _c.from("entries").select("*").eq('user_id', user.id).order("datum", { ascending: false });
-    const l = document.getElementById("_ls"); l.innerHTML = "";
-    if (data) data.forEach(e => {
-        const i = document.createElement("li"), c = e.status === 'bestätigt' ? '_s1' : '_s0';
-        i.innerHTML = `<span class="_sb_badge ${c}">${e.status || 'offen'}</span><strong>${e.datum}</strong><br><small>${e.disziplin} | ${e.waffe}</small>`;
-        l.appendChild(i);
-    });
-}
-
-async function _loadAdminPanel() {
-    const { data } = await _c.from('profiles').select('id,email');
-    const s = document.getElementById("_ms");
-    if (data) {
-        s.innerHTML = '<option value="all">-- Alle Mitglieder --</option>';
-        data.forEach(m => { let o = document.createElement("option"); o.value = m.id; o.textContent = m.email; s.appendChild(o); });
-    }
-    _refreshOpenRequests();
-}
-
-async function _refreshOpenRequests() {
-    const { data: e } = await _c.from('entries').select('*').eq('status', 'offen').order('datum', { ascending: true });
-    const { data: p } = await _c.from('profiles').select('id,email');
-    const l = document.getElementById("_al");
-    l.innerHTML = e?.length ? "" : "<li>Keine offenen Anfragen.</li>";
-    if (e) e.forEach(x => {
-        const r = p.find(z => z.id === x.user_id), i = document.createElement("li");
-        // E-Mail in Schwarz und Details hinzugefügt
-        i.innerHTML = `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <strong style="color: var(--t);">${r ? r.email : 'Unbekannt'}</strong>
-                <span>${x.datum}</span>
-            </div>
-            <div style="font-size: 0.85em; color: #444; line-height: 1.5; background: #f0f0f0; padding: 8px; border-radius: 4px;">
-                ${x.gastschuetze ? `<strong>Gast:</strong> ${x.gastschuetze}<br>` : ''}
-                <strong>Stand:</strong> ${x.schiessstand} | <strong>Disziplin:</strong> ${x.disziplin}<br>
-                <strong>Waffe:</strong> ${x.waffe}<br>
-                <strong>Aufsicht:</strong> ${x.aufsicht}
-            </div>
-            <button onclick="_approveEntry('${x.id}')" class="_ba">✓ Jetzt Freigeben</button>`;
-        l.appendChild(i);
-    });
-}
-
-window._approveEntry = async (id) => {
-    await _c.from('entries').update({ status: 'bestätigt' }).eq('id', id);
-    _refreshOpenRequests();
-};
-
-async function _getExportData() {
-    const period = document.getElementById("_ex_period").value;
-    if (!period) { alert("Bitte wähle erst einen Zeitraum aus!"); return null; }
-    const { data: profiles } = await _c.from('profiles').select('id,email');
-    let query = _c.from('entries').select('*');
-    if (period !== "all") {
-        const cutoff = new Date();
-        cutoff.setMonth(cutoff.getMonth() - parseInt(period));
-        query = query.gte('datum', cutoff.toISOString().split('T')[0]);
-    }
-    const userFilter = document.getElementById("_ms").value;
-    if (userFilter !== "all") query = query.eq('user_id', userFilter);
-    const { data: entries, error } = await query.order('datum', { ascending: false });
-    if (error || !entries || entries.length === 0) { alert("Keine Daten gefunden."); return null; }
-    return entries.map(row => {
-        const u = profiles.find(p => p.id === row.user_id);
-        return {
-            Datum: row.datum,
-            Email: u ? u.email : 'Unbekannt',
-            Schießstand: row.schiessstand,
-            Disziplin: row.disziplin,
-            Waffe: row.waffe,
-            Aufsicht: row.aufsicht,
-            Gast: row.gastschuetze || '-',
-            Status: row.status
-        };
-    });
-}
-
-document.getElementById("_xe").onclick = async () => {
-    const data = await _getExportData();
-    if (!data) return;
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Schießnachweis");
-    XLSX.writeFile(wb, `SSV_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-};
-
-document.getElementById("_pdf").onclick = async () => {
-    const data = await _getExportData();
-    if (!data) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4');
-    doc.text("SSV Schmidhausen Export", 14, 15);
-    doc.autoTable({ head: [Object.keys(data[0])], body: data.map(v => Object.values(v)), startY: 20 });
-    doc.save(`SSV_Export_${new Date().toISOString().split('T')[0]}.pdf`);
-};
-
-document.getElementById("_na").onclick = () => {
-    document.getElementById("_a").style.display = "none";
-    document.getElementById("_av").style.display = "block";
-    document.getElementById("_na").classList.add("_ax");
-    document.getElementById("_nu").classList.remove("_ax");
-};
-document.getElementById("_nu").onclick = () => {
-    document.getElementById("_av").style.display = "none";
-    document.getElementById("_a").style.display = "block";
-    document.getElementById("_nu").classList.add("_ax");
-    document.getElementById("_na").classList.remove("_ax");
-};
-
-function _startInactivityTimer() {
-    let t;
-    const r = () => { clearTimeout(t); t = setTimeout(() => { _c.auth.signOut(); location.reload(); }, 300000); };
-    ['mousedown', 'keypress', 'touchstart'].forEach(e => window.addEventListener(e, r));
-    r();
+function _loadAppScript(user) {
+    const script = document.createElement('script');
+    script.src = 'app.js';
+    script.onload = () => {
+        // App initialisieren (Funktion kommt aus app.js)
+        if (typeof window._initApp === 'function') {
+            window._initApp(user);
+        } else {
+            alert("Fehler beim Laden der App-Logik. Bitte lade die Seite neu.");
+        }
+    };
+    document.body.appendChild(script);
 }
 
 document.getElementById("_fp").onclick = e => {
