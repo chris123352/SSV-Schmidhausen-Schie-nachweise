@@ -1,4 +1,4 @@
-// app.js - Wird erst nach erfolgreichem Login geladen!
+// app.js - Komplettversion mit dynamischem Dateinamen
 
 window._initApp = async function(u) {
     document.getElementById("_la").style.display = "none";
@@ -83,7 +83,6 @@ async function _refreshOpenRequests() {
     if (e) e.forEach(x => {
         const r = p.find(z => z.id === x.user_id), i = document.createElement("li");
         
-        // Datum umwandeln von JJJJ-MM-TT zu TT.MM.JJJJ
         const dParts = x.datum.split('-');
         const formattedDate = `${dParts[2]}.${dParts[1]}.${dParts[0]}`;
 
@@ -137,23 +136,35 @@ async function _getExportData() {
     });
 }
 
+// --- EXCEL EXPORT MIT EMAIL IM DATEINAMEN ---
 document.getElementById("_xe").onclick = async () => {
     const data = await _getExportData();
     if (!data) return;
+
+    const select = document.getElementById("_ms");
+    const selectedEmail = select.options[select.selectedIndex].text;
+    const nameSuffix = select.value === "all" ? "Alle_Mitglieder" : selectedEmail.replace(/[^a-z0-9]/gi, '_');
+
     const ws = window.XLSX.utils.json_to_sheet(data);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "Schießnachweis");
-    window.XLSX.writeFile(wb, `SSV_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    window.XLSX.writeFile(wb, `SSV_Export_${nameSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
+// --- PDF EXPORT MIT EMAIL IM DATEINAMEN ---
 document.getElementById("_pdf").onclick = async () => {
     const data = await _getExportData();
     if (!data) return;
+
+    const select = document.getElementById("_ms");
+    const selectedEmail = select.options[select.selectedIndex].text;
+    const nameSuffix = select.value === "all" ? "Alle_Mitglieder" : selectedEmail.replace(/[^a-z0-9]/gi, '_');
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4');
-    doc.text("SSV Schmidhausen Export", 14, 15);
+    doc.text(`SSV Schmidhausen Export - ${selectedEmail}`, 14, 15);
     doc.autoTable({ head: [Object.keys(data[0])], body: data.map(v => Object.values(v)), startY: 20 });
-    doc.save(`SSV_Export_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`SSV_Export_${nameSuffix}_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 function _startInactivityTimer() {
