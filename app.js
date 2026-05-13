@@ -40,14 +40,67 @@ window._initApp = async function(u) {
 
 async function _saveEntry() {
     if (window._isLimited('save')) return;
-    const f = { d: document.getElementById("_d"), s: document.getElementById("_s"), di: document.getElementById("_di"), w: document.getElementById("_w"), au: document.getElementById("_au"), g: document.getElementById("_g"), b: document.getElementById("_be") };
-    if (!f.d.value || !f.s.value || !f.di.value || !f.w.value || !f.au.value) return alert("Pflichtfelder fehlen!");
-    
+    const f = { 
+        d: document.getElementById("_d"), 
+        s: document.getElementById("_s"), 
+        di: document.getElementById("_di"), 
+        w: document.getElementById("_w"), 
+        au: document.getElementById("_au"), 
+        g: document.getElementById("_g"), 
+        b: document.getElementById("_be") 
+    };
+
+    // 1. Pflichtfelder prüfen
+    if (!f.d.value || !f.s.value || !f.di.value || !f.w.value || !f.au.value) {
+        return alert("Pflichtfelder fehlen!");
+    }
+
+    const inputDate = new Date(f.d.value);
+    const dayOfWeek = inputDate.getDay(); // 0=So, 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa
+
+    // 2. Wochentags-Prüfung (Nur Mi=3, Fr=5, So=0 erlaubt)
+    if (dayOfWeek !== 0 && dayOfWeek !== 3 && dayOfWeek !== 5) {
+        return alert("Fehler: Schießnachweis nur für Mittwoch, Freitag oder Sonntag zulässig!");
+    }
+
+    // Zeit-Referenzen für Limits
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    twelveMonthsAgo.setHours(0, 0, 0, 0);
+
+    // 3. Zukunftssperre
+    if (inputDate > today) {
+        return alert("Fehler: Das Datum darf nicht in der Zukunft liegen.");
+    }
+
+    // 4. Prüfung: 12-Monate-Limit
+    if (inputDate < twelveMonthsAgo) {
+        return alert("Fehler: Der Eintrag darf nicht älter als 12 Monate sein.");
+    }
+
+    // Speichervorgang (Supabase)
     const { data: { user } } = await window._c.auth.getUser();
-    const { error } = await window._c.from("entries").insert([{ user_id: user.id, datum: f.d.value, gastschuetze: f.g.value.trim(), schiessstand: f.s.value, disziplin: f.di.value.trim(), waffe: f.w.value.trim(), aufsicht: f.au.value.trim(), bemerkung: f.b.value.trim(), status: 'offen' }]);
+    const { error } = await window._c.from("entries").insert([{ 
+        user_id: user.id, 
+        datum: f.d.value, 
+        gastschuetze: f.g.value.trim(), 
+        schiessstand: f.s.value, 
+        disziplin: f.di.value.trim(), 
+        waffe: f.w.value.trim(), 
+        aufsicht: f.au.value.trim(), 
+        bemerkung: f.b.value.trim(), 
+        status: 'offen' 
+    }]);
     
     if (error) alert("Fehler beim Speichern.");
-    else { alert("Erfolgreich gespeichert!"); Object.values(f).forEach(x => x.value = ""); _loadUserEntries(user); }
+    else { 
+        alert("Erfolgreich gespeichert!"); 
+        Object.values(f).forEach(x => x.value = ""); 
+        _loadUserEntries(user); 
+    }
 }
 
 async function _loadUserEntries(u) {
