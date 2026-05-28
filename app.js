@@ -294,16 +294,16 @@ async function _refreshOpenRequests() {
             i.id = `card_${x.id}`;
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
 
-            // Optimierter Header: E-Mail links gedeckelt, Datum & Ausnahme bombenfest rechts ausgerichtet
+            // E-Mail ist jetzt im gefärbten Kasten eingebettet mit einer optischen Trennlinie
             i.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 10px;">
-                    <strong style="color: var(--t); word-break: break-all; font-size: 0.9em; max-width: 55%; line-height: 1.2;">${r ? r.email : 'Unbekannt'}</strong>
-                    <div style="text-align: right; min-width: 40%; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-start;">
-                        <span style="color: var(--t); font-weight: bold; font-size: 0.9em;">${formattedDate}</span>
-                        ${!isRegular ? `<span style="color: #e67e22; font-weight: bold; font-size: 0.75em; margin-top: 4px; white-space: nowrap;">⚠️ Ausnahme</span>` : ''}
-                    </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="color: var(--t); font-weight: bold; font-size: 0.95em;">${formattedDate}</span>
+                    ${!isRegular ? `<span style="color: #e67e22; font-weight: bold; font-size: 0.75em; white-space: nowrap;">⚠️ Ausnahme</span>` : ''}
                 </div>
-                <div class="_card_details" style="background: ${isRegular ? '#f0f0f0' : '#faeedf'};">
+                <div class="_card_details" style="background: ${isRegular ? '#f0f0f0' : '#faeedf'}; padding: 12px; border-radius: 6px;">
+                    <strong style="color: var(--t); word-break: break-all; font-size: 0.95em; display: block; margin-bottom: 8px; border-bottom: 1px solid ${isRegular ? '#e0e0e0' : '#eedcc5'}; padding-bottom: 6px;">
+                        ${r ? r.email : 'Unbekannt'}
+                    </strong>
                     ${x.gastschuetze ? `<strong>Gast:</strong> ${x.gastschuetze}<br>` : ''}
                     <strong>Stand:</strong> ${x.schiessstand} | <strong>Disziplin:</strong> ${x.disziplin}<br>
                     <strong>Waffe:</strong> ${x.waffe}<br>
