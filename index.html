@@ -11,7 +11,7 @@
 
 <style>
     :root {
-        --primary: #1b7e43; /* Vereinsgrün aus Bild 2 */
+        --primary: #1b7e43;
         --primary-dark: #135c30;
         --bg: #f4f6f7;
         --text: #2c3e50;
@@ -40,7 +40,7 @@
         align-items: center;
         justify-content: center;
         gap: 15px;
-        border-bottom: 4px solid #f1c40f; /* Gelber Akzentstrich */
+        border-bottom: 4px solid #f1c40f;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     header img { 
@@ -119,15 +119,11 @@
         border-radius: 5px;
         transition: background-color 0.2s ease, transform 0.1s ease;
     }
-    ._lo_btn:hover {
-        background: #c0392b !important; /* Dunkleres Rot für den Hover-Effekt */
-    }
-    ._lo_btn:active {
-        transform: scale(0.95); /* Klick-Effekt */
-    }
+    ._lo_btn:hover { background: #c0392b !important; }
+    ._lo_btn:active { transform: scale(0.95); }
 
     ._nb {
-        display: none; /* Wird per JS aktiviert */
+        display: none;
         gap: 10px;
         width: 90%;
         max-width: 450px;
@@ -136,6 +132,8 @@
     ._nb button {
         flex: 1;
         margin: 0;
+        padding: 10px !important;
+        font-size: 0.85em;
     }
     ._nb button._ax {
         background: var(--primary-dark) !important;
@@ -167,7 +165,7 @@
         outline: none;
     }
     
-    #_ls, #_al {
+    #_ls, #_al, #_waffen_list {
         list-style: none;
         padding: 0;
         margin: 20px 0 0 0;
@@ -180,6 +178,19 @@
         padding: 15px !important;
         text-align: left;
     }
+
+    ._sb_badge {
+        float: right;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75em;
+        font-weight: bold;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    ._s0 { background-color: #f39c12; }
+    ._s1 { background-color: #27ae60; }
     
     ._db_box {
         background: var(--gray-light);
@@ -195,15 +206,41 @@
     ._db_title { margin: 0 0 4px 0; color: var(--text); }
     ._db_info { font-size: 0.85em; color: #666; }
 
+    /* KUCHENDIAGRAMM / DONUT-CHART TYP */
+    ._db_circle {
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        font-weight: bold;
+        font-size: 1.15em;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        flex-shrink: 0;
+    }
+    ._db_circle::before {
+        content: "";
+        position: absolute;
+        top: 5px; left: 5px; right: 5px; bottom: 5px;
+        border-radius: 50%;
+        background: var(--white);
+        z-index: 1;
+    }
+    ._db_circle span {
+        position: relative;
+        z-index: 2;
+        color: var(--text);
+    }
+
     #_fp {
         color: #555;
         font-size: 0.85em;
         text-decoration: none;
     }
     #_fp:hover { text-decoration: underline; }
-    
 </style>
-
 </head>
 <body>
 <header>
@@ -211,16 +248,54 @@
 <div><h2>SSV Schmidhausen</h2><span>Digitaler Schießnachweis</span></div>
 </header>
 <div class="_c" id="_la"><h3>Mitglied Login</h3><input id="_e" type="email" placeholder="E-Mail Adresse"><input id="_p" type="password" placeholder="Passwort"><button id="_lb" class="_mb">Anmelden</button><p style="text-align:center;margin-top:15px"><a href="#" id="_fp">Passwort vergessen?</a></p></div>
-<div class="_nb" id="_an"><button id="_nu" class="_ax">Meine Einträge</button><button id="_na">Admin-Zentrale</button></div>
+
+<div class="_nb" id="_an">
+    <button id="_n_start" class="_ax">Startseite</button>
+    <button id="_nu">Einträge</button>
+    <button id="_na">Admin</button>
+</div>
+
+<div class="_c" id="_start" style="display:none;">
+    <div class="_hr"><h3>Startseite</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div>
+    
+    <div class="_db_box">
+        <div><h4 class="_db_title">Jahresübersicht <span id="_db_year">-</span></h4><span class="_db_info"><span id="_db_count">0</span> von <span id="_db_target">12</span> Pflichteinträgen</span></div>
+        <div id="_db_circle" class="_db_circle"><span>-</span></div>
+    </div>
+    
+    <h4 style="margin-top:30px; border-bottom:1px solid var(--border); padding-bottom:5px; text-align: left;">Eigene Waffe speichern</h4>
+    <label for="_new_w">Waffe *</label>
+    <input id="_new_w" placeholder="z.B. CZ Shadow 2">
+    <label for="_new_k">Kaliber *</label>
+    <input id="_new_k" placeholder="z.B. 9mm">
+    <button id="_save_w_btn" class="_mb">Waffe speichern</button>
+
+    <h4 style="margin-top:30px; border-bottom:1px solid var(--border); padding-bottom:5px; text-align: left;">Meine Waffen (Nutzung ab 01.01.)</h4>
+    <ul id="_waffen_list"></ul>
+</div>
+
 <div class="_c" id="_a" style="display:none;">
-<div class="_hr"><h3>Neuer Eintrag</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div>
-<div class="_db_box">
-<div><h4 class="_db_title">Jahresübersicht <span id="_db_year">-</span></h4><span class="_db_info"><span id="_db_count">0</span> von <span id="_db_target">12</span> Pflichteinträgen</span></div>
-<div id="_db_circle" class="_db_circle">-</div>
+    <div class="_hr"><h3>Neuer Eintrag</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div>
+    
+    <p style="font-size:0.75em;color:#777;margin:0 0 10px 0;text-align:left;">* Pflichtfelder</p>
+    <label for="_d">Datum *</label><input id="_d" type="date">
+    <label for="_g">Name Gastschütze</label><input id="_g" placeholder="Vor- und Nachname">
+    <label for="_s">Schießstand *</label>
+    <select id="_s"><option value="">-- Bitte wählen --</option><option value="Kurzwaffe">Kurzwaffe</option><option value="Langwaffe">Langwaffe</option><option value="Lufthalle">Lufthalle</option></select>
+    <label for="_ty">Trainingsart *</label>
+    <select id="_ty"><option value="">-- Bitte wählen --</option><option value="Training">Training</option><option value="Wettkampf">Wettkampf</option></select>
+    <label for="_di">Disziplin *</label><input id="_di" placeholder="z.B. WT4.1">
+    
+    <label for="_w">Waffe/Kaliber *</label>
+    <input id="_w" list="_dl_w" placeholder="Eigene Waffe wählen oder frei tippen...">
+    <datalist id="_dl_w"></datalist>
+
+    <label for="_au">Aufsicht *</label><input id="_au" placeholder="Name der Aufsicht / Selbstaufsicht">
+    <label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges...">
+    <button id="_sb" class="_mb">Eintrag Speichern</button>
+    <h3 id="_met" style="margin-top:40px;border-bottom:2px solid var(--primary);padding-bottom:5px;text-align:left;">Meine Einträge</h3><ul id="_ls"></ul>
 </div>
-<p style="font-size:0.75em;color:#777;margin:0 0 10px 0;text-align:left;">* Pflichtfelder</p>
-<label for="_d">Datum *</label><input id="_d" type="date"><label for="_g">Name Gastschütze</label><input id="_g" placeholder="Vor- und Nachname"><label for="_s">Schießstand *</label><select id="_s"><option value="">-- Bitte wählen --</option><option value="Kurzwaffe">Kurzwaffe</option><option value="Langwaffe">Langwaffe</option><option value="Lufthalle">Lufthalle</option></select><label for="_ty">Trainingsart *</label><select id="_ty"><option value="">-- Bitte wählen --</option><option value="Training">Training</option><option value="Wettkampf">Wettkampf</option></select><label for="_di">Disziplin *</label><input id="_di" placeholder="z.B. WT4.1"><label for="_w">Waffe/Kaliber *</label><input id="_w" placeholder="z.B. CZ Shadow 2 / 9mm"><label for="_au">Aufsicht *</label><input id="_au" placeholder="Name der Aufsicht / Selbstaufsicht"><label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges..."><button id="_sb" class="_mb">Eintrag Speichern</button><h3 id="_met" style="margin-top:40px;border-bottom:2px solid var(--primary);padding-bottom:5px;text-align:left;">Meine Einträge</h3><ul id="_ls"></ul>
-</div>
+
 <div class="_c" id="_av" style="display:none;"><div class="_hr"><h3>Export & Freigabe</h3><div class="_ub_style"><span class="_dmn_text _cur_user"></span><button class="_lo_btn">Logout</button></div></div><label>Mitglied filtern:</label><select id="_ms"><option value="all">-- Alle Mitglieder --</option></select><label>Zeitraum für Export *:</label><select id="_ex_period"><option value="">-- Zeitraum wählen --</option><option value="6">Letzte 6 Monate</option><option value="12">Letzte 12 Monate</option><option value="all">Gesamter Zeitraum</option></select><div style="display:flex;gap:10px;margin-top:10px"><button id="_xe" style="flex:1;background:#1d6f42;color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">Excel</button><button id="_pdf" style="flex:1;background:var(--danger);color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">PDF</button></div><h3 style="margin-top:30px;text-align:left;">Offene Freigaben</h3><ul id="_al"></ul></div>
 <script>
 (function(_0x1,_0x2){const _0x3=window,_0x4=document,_0x5="https://zgpjnjttafrpjcswpaff.supabase.co",_0x6="sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX";_0x3['_c']=_0x3['supabase']['createClient'](_0x5,_0x6);const _0x7={login:[],save:[]};_0x3['_isLimited']=function(_0x8){const _0x9=Date['now']();_0x7[_0x8]=_0x7[_0x8]['filter'](_0x10=>_0x9-_0x10<0xea60);if(_0x7[_0x8]['length']>=0x3){alert("Zu viele Anfragen. Bitte warte 60 Sekunden.");return!![];}_0x7[_0x8]['push'](_0x9);return![];};_0x3['onload']=async()=>{const{data:{session:_0x11}}=await _0x3['_c']['auth']['getSession']();if(_0x11){_0x12(_0x11['user']);}else{_0x4['getElementById']("_lb")['onclick']=_0x13;}};async function _0x13(){if(_0x3['_isLimited']('login'))return;const _0x14=_0x4['getElementById']("_e")['value'],_0x15=_0x4['getElementById']("_p")['value'];const{data:_0x16,error:_0x17}=await _0x3['_c']['auth']['signInWithPassword']({email:_0x14,password:_0x15});if(_0x17)return alert("Login fehlgeschlagen.");_0x12(_0x16['user']);}function _0x12(_0x18){const _0x19=_0x4['createElement']('script');_0x19['src']='app.js';_0x19['onload']=()=>{if(typeof _0x3['_initApp']==='function'){_0x3['_initApp'](_0x18);}else{alert("Fehler beim Laden der App-Logik.");}};_0x4['body']['appendChild'](_0x19);};_0x4['getElementById']("_fp")['onclick']=_0x1a=>{_0x1a['preventDefault']();const _0x1b=["C","Dorn1","gmx","de"],_0x1c=`Bitte melde dich bei Christian Dorn per WhatsApp oder E-Mail, um dein Passwort zurücksetzen zu lassen.\n\nSoll jetzt eine E-Mail vorbereitet werden?`;if(confirm(_0x1c)){_0x3['location']['href']="mailto:"+_0x1b[0]+"."+_0x1b[1]+"@"+_0x1b[2]+"."+_0x1b[3]+"?subject=Passwort-Reset SSV App&body=Hallo Christian, ich habe mein Passwort vergessen.";};};})(window,document);

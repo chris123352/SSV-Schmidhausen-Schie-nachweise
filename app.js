@@ -1,15 +1,12 @@
 window._initApp = async function(u) {
-    // Schicke Styles für Toasts, Fortschrittsbalken und Admin-Karten injizieren
     _injectPremiumStyles();
     
-    // Login-Maske ausblenden, Hauptbereich anzeigen
     document.getElementById("_la").style.display = "none";
-    document.getElementById("_a").style.display = "block";
+    document.getElementById("_start").style.display = "block";
+    document.getElementById("_a").style.display = "none";
     
-    // Aktuellen Benutzer überall eintragen
     document.querySelectorAll("._cur_user").forEach(el => el.textContent = u.email);
     
-    // Logout-Buttons aktivieren
     document.querySelectorAll("._lo_btn").forEach(btn => {
         btn.onclick = async () => {
             await window._c.auth.signOut();
@@ -17,36 +14,122 @@ window._initApp = async function(u) {
         };
     });
     
-    // Admin-Rechte prüfen und Dashboard anpassen
     const { data: p } = await window._c.from('profiles').select('is_admin').eq('id', u.id).maybeSingle();
     if (p && p.is_admin) {
         document.getElementById("_an").style.display = "flex";
         _loadAdminPanel();
+    } else {
+        document.getElementById("_an").style.display = "flex";
+        document.getElementById("_na").style.display = "none";
     }
     
-    // Sicherheitsfeatures & Komfort-Funktionen starten
     _startInactivityTimer();
     _updateDatalists();
     _loadUserEntries(u);
+    _loadWaffen(u);
     
-    // Event-Handler für Buttons setzen
-    document.getElementById("_sb").onclick = _saveEntry;
-    
-    document.getElementById("_na").onclick = () => {
+    document.getElementById("_n_start").onclick = () => {
+        document.getElementById("_start").style.display = "block";
         document.getElementById("_a").style.display = "none";
-        document.getElementById("_av").style.display = "block";
-        document.getElementById("_na").classList.add("_ax");
+        document.getElementById("_av").style.display = "none";
+        document.getElementById("_n_start").classList.add("_ax");
         document.getElementById("_nu").classList.remove("_ax");
-        _refreshOpenRequests();
+        document.getElementById("_na").classList.remove("_ax");
     };
-    
+
     document.getElementById("_nu").onclick = () => {
+        document.getElementById("_start").style.display = "none";
         document.getElementById("_av").style.display = "none";
         document.getElementById("_a").style.display = "block";
         document.getElementById("_nu").classList.add("_ax");
         document.getElementById("_na").classList.remove("_ax");
+        document.getElementById("_n_start").classList.remove("_ax");
     };
+
+    document.getElementById("_na").onclick = () => {
+        document.getElementById("_start").style.display = "none";
+        document.getElementById("_a").style.display = "none";
+        document.getElementById("_av").style.display = "block";
+        document.getElementById("_na").classList.add("_ax");
+        document.getElementById("_nu").classList.remove("_ax");
+        document.getElementById("_n_start").classList.remove("_ax");
+        _refreshOpenRequests();
+    };
+
+    document.getElementById("_sb").onclick = _saveEntry;
+    document.getElementById("_save_w_btn").onclick = async () => { await _saveWaffe(u); };
 };
+
+async function _saveWaffe(u) {
+    const btn = document.getElementById("_save_w_btn");
+    const w = document.getElementById("_new_w").value.trim();
+    const k = document.getElementById("_new_k").value.trim();
+    
+    if (!w || !k) return _toast("Bitte Waffe UND Kaliber eingeben!", "error");
+    
+    btn.disabled = true;
+    btn.innerHTML = `<span class="_spinner"></span> Speichert...`;
+    
+    const { error } = await window._c.from("waffenspeicher").insert([{
+        user_id: u.id,
+        waffe: w,
+        kaliber: k
+    }]);
+    
+    btn.disabled = false;
+    btn.innerHTML = "Waffe保存";
+    
+    if (error) {
+        _toast("Fehler beim Speichern der Waffe.", "error");
+    } else {
+        _toast("Waffe erfolgreich gespeichert!", "success");
+        document.getElementById("_new_w").value = "";
+        document.getElementById("_new_k").value = "";
+        _loadWaffen(u);
+    }
+}
+
+async function _loadWaffen(u) {
+    const { data: waffen } = await window._c.from("waffenspeicher").select("*").eq('user_id', u.id);
+    const currentYear = new Date().getFullYear();
+    const startOfYear = `${currentYear}-01-01`;
+    const { data: entries } = await window._c.from("entries")
+        .select("waffe")
+        .eq('user_id', u.id)
+        .gte('datum', startOfYear);
+        
+    const list = document.getElementById("_waffen_list");
+    const dl = document.getElementById("_dl_w");
+    
+    list.innerHTML = "";
+    dl.innerHTML = "";
+    
+    if (waffen && waffen.length > 0) {
+        waffen.forEach(w => {
+            const comboName = `${w.waffe} / ${w.kaliber}`;
+            let usageCount = 0;
+            if (entries) {
+                usageCount = entries.filter(e => e.waffe === comboName || e.waffe === w.waffe || e.waffe.includes(w.waffe)).length;
+            }
+            
+            const li = document.createElement("li");
+            li.style.cssText = "background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; padding: 15px; display: flex; justify-content: space-between; align-items: center;";
+            li.innerHTML = `
+                <div><strong style="color: var(--text);">${w.waffe}</strong><br><small style="color: #666;">Kaliber: ${w.kaliber}</small></div>
+                <div style="background: var(--primary); color: white; border-radius: 5px; padding: 5px 12px; font-weight: bold; font-size: 0.9em;">
+                    ${usageCount}x
+                </div>
+            `;
+            list.appendChild(li);
+            
+            const opt = document.createElement("option");
+            opt.value = comboName;
+            dl.appendChild(opt);
+        });
+    } else {
+        list.innerHTML = `<li style="text-align:center;color:#777;padding:10px;">Noch keine Waffen hinterlegt.</li>`;
+    }
+}
 
 function _toast(message, type = 'info') {
     const box = document.createElement("div");
@@ -61,19 +144,9 @@ function _toast(message, type = 'info') {
 }
 
 function _updateDatalists() {
-    const wHist = JSON.parse(localStorage.getItem("_hist_w") || "[]");
     const auHist = JSON.parse(localStorage.getItem("_hist_au") || "[]");
-    const inW = document.getElementById("_w");
     const inAu = document.getElementById("_au");
     
-    if (inW) {
-        inW.setAttribute("autocomplete", "off");
-        inW.setAttribute("list", "_dl_w");
-        let dlW = document.getElementById("_dl_w") || document.createElement("datalist");
-        dlW.id = "_dl_w";
-        dlW.innerHTML = wHist.map(x => `<option value="${x}"></option>`).join('');
-        if (!dlW.parentNode) document.body.appendChild(dlW);
-    }
     if (inAu) {
         inAu.setAttribute("autocomplete", "off");
         inAu.setAttribute("list", "_dl_au");
@@ -105,7 +178,7 @@ async function _saveEntry() {
     }
     
     const inputDate = new Date(f.d.value);
-    const dayOfWeek = inputDate.getDay(); // 0 = Sonntag, 3 = Mittwoch, 5 = Freitag
+    const dayOfWeek = inputDate.getDay(); 
     
     if (dayOfWeek !== 0 && dayOfWeek !== 3 && dayOfWeek !== 5) {
         if (!f.b.value.trim()) {
@@ -118,8 +191,8 @@ async function _saveEntry() {
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
     
-    if (inputDate > today) return _toast("Fehler: Das Datum darf nicht in der Zukunft liegen.", "error");
-    if (inputDate < twelveMonthsAgo) return _toast("Fehler: Der Eintrag darf nicht älter als 12 Monate sein.", "error");
+    if (inputDate > today) return _toast("Fehler: Datum darf nicht in der Zukunft liegen.", "error");
+    if (inputDate < twelveMonthsAgo) return _toast("Fehler: Eintrag darf nicht älter als 12 Monate sein.", "error");
     
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner"></span> Speichert...`;
@@ -146,13 +219,7 @@ async function _saveEntry() {
     } else {
         _toast("Erfolgreich gespeichert!", "success");
         
-        let wHist = JSON.parse(localStorage.getItem("_hist_w") || "[]");
         let auHist = JSON.parse(localStorage.getItem("_hist_au") || "[]");
-        
-        if (f.w.value.trim() && !wHist.includes(f.w.value.trim())) {
-            wHist.unshift(f.w.value.trim());
-            localStorage.setItem("_hist_w", JSON.stringify(wHist.slice(0, 3)));
-        }
         if (f.au.value.trim() && !auHist.includes(f.au.value.trim())) {
             auHist.unshift(f.au.value.trim());
             localStorage.setItem("_hist_au", JSON.stringify(auHist.slice(0, 3)));
@@ -161,6 +228,7 @@ async function _saveEntry() {
         _updateDatalists();
         Object.values(f).forEach(x => x.value = "");
         _loadUserEntries(user);
+        _loadWaffen(user);
         
         if (document.getElementById("_an").style.display === "flex") {
             _refreshOpenRequests();
@@ -180,10 +248,8 @@ async function _loadUserEntries(u) {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     
-    // Alle Einträge des aktuellen Kalenderjahres filtern
     const yearEntries = data ? data.filter(e => e.datum && e.datum.startsWith(currentYear.toString())) : [];
     
-    // Monate sammeln, in denen geschossen wurde (0 = Jan, 11 = Dez)
     const monthsWithEntries = new Set();
     yearEntries.forEach(e => {
         if (e.datum) {
@@ -191,7 +257,6 @@ async function _loadUserEntries(u) {
         }
     });
     
-    // Überprüfen, ob bis zum aktuellen Monat wirklich in jedem Monat geschossen wurde
     let istRegelmaessig = true;
     for (let m = 0; m <= currentMonth; m++) {
         if (!monthsWithEntries.has(m)) {
@@ -200,20 +265,16 @@ async function _loadUserEntries(u) {
         }
     }
     
-    // ZIEL & FORTSCHRITT LOGIK-FIX:
-    // Regelmäßig: Ziel ist 12, gezählt werden nur die einzigartigen Monate (Max. 1 pro Monat)
-    // Unregelmäßig: Ziel ist 18, gezählt werden alle Einträge aufsummiert
     const targetEntries = istRegelmaessig ? 12 : 18;
     const entriesThisYear = istRegelmaessig ? monthsWithEntries.size : yearEntries.length;
     
-    // UI Texte aktualisieren
     document.getElementById("_db_year") && (document.getElementById("_db_year").textContent = currentYear);
     document.getElementById("_db_count") && (document.getElementById("_db_count").textContent = entriesThisYear);
     document.getElementById("_db_target") && (document.getElementById("_db_target").textContent = targetEntries);
     
+    // GENERIERUNG DES KUCHENDIAGRAMMS (CONIC-GRADIENT)
     const dbCircle = document.getElementById("_db_circle");
     if (dbCircle) {
-        dbCircle.textContent = entriesThisYear;
         let color = "#1b7e43";
         
         if (entriesThisYear >= targetEntries) {
@@ -228,38 +289,30 @@ async function _loadUserEntries(u) {
             color = "#e74c3c";
         }
         
-        dbCircle.style.backgroundColor = color;
-        dbCircle.style.color = "#fff";
-        dbCircle.style.width = "45px";
-        dbCircle.style.height = "45px";
-        dbCircle.style.borderRadius = "50%";
-        
-        let pWrap = document.getElementById("_db_p_wrap");
-        if (!pWrap) {
-            pWrap = document.createElement("div");
-            pWrap.id = "_db_p_wrap";
-            pWrap.className = "_progress_container";
-            pWrap.innerHTML = `<div id="_db_p_bar" class="_progress_bar"></div>`;
-            dbCircle.parentNode.insertBefore(pWrap, dbCircle.nextSibling);
-        }
-        
         const pct = Math.min(100, (entriesThisYear / targetEntries) * 100);
-        const pBar = document.getElementById("_db_p_bar");
-        setTimeout(() => {
-            pBar.style.width = pct + "%";
-            pBar.style.backgroundColor = color;
-        }, 100);
+        dbCircle.style.background = `conic-gradient(${color} ${pct}%, #e0e0e0 ${pct}%)`;
+        dbCircle.innerHTML = `<span>${entriesThisYear}</span>`;
+        
+        const oldBar = document.getElementById("_db_p_wrap");
+        if (oldBar) oldBar.remove();
     }
     
-    // Eintragsliste rendern
     const l = document.getElementById("_ls");
     l.innerHTML = "";
     let hasOlderEntries = false, olderEntriesCount = 0;
     
     if (data) {
         data.forEach(e => {
-            const i = document.createElement("li"), c = e.status === 'bestätigt' ? '_s1' : '_s0';
-            i.innerHTML = `<span class="_sb_badge ${c}">${e.status || 'offen'}</span><strong>${e.datum}</strong> (${e.typ || 'Training'})<br><small>${e.disziplin} | ${e.waffe}</small>`;
+            const i = document.createElement("li");
+            const c = e.status === 'bestätigt' ? '_s1' : '_s0';
+            
+            let displayDate = e.datum;
+            if (e.datum && e.datum.includes('-')) {
+                const parts = e.datum.split('-');
+                displayDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
+            }
+
+            i.innerHTML = `<span class="_sb_badge ${c}">${e.status || 'offen'}</span><strong style="font-size: 1.05em;">${displayDate}</strong> <span style="color: #666;">(${e.typ || 'Training'})</span><br><small style="color: #555; display: inline-block; margin-top: 5px;">${e.disziplin} | ${e.waffe}</small>`;
             
             if (e.datum && !e.datum.startsWith(currentYear.toString())) {
                 i.classList.add("_older_entry");
@@ -415,8 +468,11 @@ async function _getExportData() {
     
     return entries.map(row => {
         const u = profiles.find(p => p.id === row.user_id);
+        const dParts = row.datum.split('-');
+        const formattedDate = `${dParts[2]}.${dParts[1]}.${dParts[0]}`;
+
         return {
-            Datum: row.datum,
+            Datum: formattedDate,
             Email: u ? u.email : 'Unbekannt',
             Typ: row.typ || 'Training',
             Schießstand: row.schiessstand,
@@ -472,7 +528,7 @@ function _startInactivityTimer() {
         t = setTimeout(() => {
             window._c.auth.signOut();
             location.reload();
-        }, 300000); // 5 Minuten Inaktivitätstimer
+        }, 300000);
     };
     ['mousedown', 'keypress', 'touchstart'].forEach(e => window.addEventListener(e, r));
     r();
@@ -487,22 +543,7 @@ function _injectPremiumStyles() {
         ._toast_show{bottom:25px;opacity:1;}
         ._toast_success{background-color:#2ecc71;}
         ._toast_error{background-color:#e74c3c;}
-        ._progress_container{width:65%;background:#e0e0e0;border-radius:10px;height:8px;margin:12px 0 12px auto;overflow:hidden;}
-        ._progress_bar{height:100%;width:0%;transition:width 0.8s ease-out,background-color 0.5s;}
-        #_db_circle{margin-left:auto !important;display:flex;align-items:center;justify-content:center;transition:all 0.3s ease;width:40px;height:40px;border-radius:50%;font-weight:bold;}
-        ._spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-radius:50%;border-top-color:#fff;animation:_spin 0.6s linear infinite;margin-right:6px;vertical-align:middle;}
-        @keyframes _spin{to{transform:rotate(360deg);}}
-        ._admin_card{display:block;background:white;list-style:none;padding:12px;margin-bottom:12px;border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,0.05);transition:transform 0.35s ease-in,opacity 0.3s,margin-bottom 0.35s,padding 0.35s,height 0.35s;max-height:300px;opacity:1;}
-        ._card_exc{border-left:4px solid #e67e22;background-color:#fffaf4;}
-        ._card_details{font-size:0.85em;color:#444;line-height:1.5;padding:8px;border-radius:4px;margin-bottom:8px;}
-        ._card_dismiss{transform:translateX(120%);opacity:0;max-height:0;padding:0;margin-bottom:0;overflow:hidden;}
-        ._btn_secondary{background-color:#7f8c8d;color:white;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;font-size:0.85em;font-weight:bold;width:100%;transition:background 0.2s;}
-        ._btn_active{background-color:var(--primary) !important;}
-        ._sb_badge{padding:3px 6px;border-radius:4px;color:white;font-size:0.75em;font-weight:bold;margin-right:8px;text-transform:uppercase;}
-        ._s1{background:#2ecc71;}
-        ._s0{background:#f39c12;}
-        ._confetti{position:fixed;top:-10px;width:8px;height:8px;z-index:9999;pointer-events:none;opacity:0.8;animation:_fall linear forwards;}
-        @keyframes _fall{to{transform:translateY(105vh) rotate(360deg);opacity:0;}}
+        ._toast_info{background-color:#3498db;}
     `;
     document.head.appendChild(s);
 }
