@@ -58,6 +58,10 @@ window._initApp = async function(u) {
 
     document.getElementById("_sb").onclick = _saveEntry;
     document.getElementById("_save_w_btn").onclick = async () => { await _saveWaffe(u); };
+    
+    // Modal Buttons binden
+    document.getElementById("_btn_cancel_delete").onclick = window._hideDeleteModal;
+    document.getElementById("_btn_confirm_delete").onclick = window._confirmDeleteAction;
 };
 
 async function _saveWaffe(u) {
@@ -72,12 +76,13 @@ async function _saveWaffe(u) {
     
     const { error } = await window._c.from("waffenspeicher").insert([{
         user_id: u.id,
+        email: u.email,
         waffe: w,
         kaliber: k
     }]);
     
     btn.disabled = false;
-    btn.innerHTML = "Waffe保存";
+    btn.innerHTML = "Waffe speichern";
     
     if (error) {
         _toast("Fehler beim Speichern der Waffe.", "error");
@@ -114,10 +119,19 @@ async function _loadWaffen(u) {
             
             const li = document.createElement("li");
             li.style.cssText = "background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; padding: 15px; display: flex; justify-content: space-between; align-items: center;";
+            
+            const safeName = w.waffe.replace(/'/g, "\\'");
+            
             li.innerHTML = `
-                <div><strong style="color: var(--text);">${w.waffe}</strong><br><small style="color: #666;">Kaliber: ${w.kaliber}</small></div>
-                <div style="background: var(--primary); color: white; border-radius: 5px; padding: 5px 12px; font-weight: bold; font-size: 0.9em;">
-                    ${usageCount}x
+                <div style="flex: 1;">
+                    <strong style="color: var(--text);">${w.waffe}</strong><br>
+                    <small style="color: #666;">Kaliber: ${w.kaliber}</small>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: var(--primary); color: white; border-radius: 5px; padding: 5px 12px; font-weight: bold; font-size: 0.9em;">
+                        ${usageCount}x
+                    </div>
+                    <button class="_btn_icon_delete" onclick="window._showDeleteModal('${w.id}', 'waffe', '${safeName}')" title="Waffe löschen">🗑️</button>
                 </div>
             `;
             list.appendChild(li);
@@ -130,6 +144,62 @@ async function _loadWaffen(u) {
         list.innerHTML = `<li style="text-align:center;color:#777;padding:10px;">Noch keine Waffen hinterlegt.</li>`;
     }
 }
+
+// === UNIVERSELLE LÖSCH-LOGIK ===
+window._deleteData = { id: null, type: null };
+
+window._showDeleteModal = function(id, type, name) {
+    window._deleteData = { id, type };
+    
+    const title = type === 'waffe' ? 'Waffe löschen?' : 'Eintrag löschen?';
+    const text = type === 'waffe' 
+        ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?`
+        : `Möchtest du <strong>${name}</strong> wirklich löschen?`;
+        
+    document.getElementById("_delete_modal_title").textContent = title;
+    document.getElementById("_delete_modal_text").innerHTML = text;
+    document.getElementById("_delete_modal").style.display = "flex";
+};
+
+window._hideDeleteModal = function() {
+    window._deleteData = { id: null, type: null };
+    document.getElementById("_delete_modal").style.display = "none";
+};
+
+window._confirmDeleteAction = async function() {
+    if (!window._deleteData.id) return;
+    
+    const btn = document.getElementById("_btn_confirm_delete");
+    btn.disabled = true;
+    btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
+
+    // Je nach Typ die richtige Tabelle in Supabase wählen
+    const table = window._deleteData.type === 'waffe' ? 'waffenspeicher' : 'entries';
+    const { error } = await window._c.from(table).delete().eq("id", window._deleteData.id);
+
+    btn.disabled = false;
+    btn.innerHTML = "Löschen";
+    window._hideDeleteModal();
+
+    if (error) {
+        _toast("Fehler beim Löschen.", "error");
+    } else {
+        _toast("Erfolgreich gelöscht!", "success");
+        const { data: { user } } = await window._c.auth.getUser();
+        
+        // Entsprechende Liste aktualisieren
+        if (window._deleteData.type === 'waffe') {
+            _loadWaffen(user);
+        } else {
+            _loadUserEntries(user);
+            // Admin Panel ebenfalls updaten falls offen
+            if (document.getElementById("_an").style.display === "flex") {
+                _refreshOpenRequests();
+            }
+        }
+    }
+};
+// =============================
 
 function _toast(message, type = 'info') {
     const box = document.createElement("div");
@@ -272,7 +342,6 @@ async function _loadUserEntries(u) {
     document.getElementById("_db_count") && (document.getElementById("_db_count").textContent = entriesThisYear);
     document.getElementById("_db_target") && (document.getElementById("_db_target").textContent = targetEntries);
     
-    // GENERIERUNG DES KUCHENDIAGRAMMS (CONIC-GRADIENT)
     const dbCircle = document.getElementById("_db_circle");
     if (dbCircle) {
         let color = "#1b7e43";
@@ -312,7 +381,19 @@ async function _loadUserEntries(u) {
                 displayDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
             }
 
-            i.innerHTML = `<span class="_sb_badge ${c}">${e.status || 'offen'}</span><strong style="font-size: 1.05em;">${displayDate}</strong> <span style="color: #666;">(${e.typ || 'Training'})</span><br><small style="color: #555; display: inline-block; margin-top: 5px;">${e.disziplin} | ${e.waffe}</small>`;
+            // Neues Flexbox-Layout für Einträge mit Lösch-Button
+            i.style.cssText = "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;";
+            
+            i.innerHTML = `
+                <div style="flex: 1; text-align: left;">
+                    <strong style="font-size: 1.05em;">${displayDate}</strong> <span style="color: #666;">(${e.typ || 'Training'})</span><br>
+                    <small style="color: #555; display: inline-block; margin-top: 5px;">${e.disziplin} | ${e.waffe}</small>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <span class="_sb_badge ${c}" style="position: relative; right: auto; top: auto; margin: 0;">${e.status || 'offen'}</span>
+                    <button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', 'entry', 'den Eintrag vom ${displayDate}')" title="Eintrag löschen">🗑️</button>
+                </div>
+            `;
             
             if (e.datum && !e.datum.startsWith(currentYear.toString())) {
                 i.classList.add("_older_entry");
@@ -332,7 +413,7 @@ async function _loadUserEntries(u) {
             toggleLi.querySelector("#_btn_toggle_older").onclick = function() {
                 const elements = l.querySelectorAll("._older_entry");
                 const isHidden = elements[0].style.display === "none";
-                elements.forEach(el => el.style.display = isHidden ? "block" : "none");
+                elements.forEach(el => el.style.display = isHidden ? "flex" : "none");
                 this.textContent = isHidden ? `▲ Ältere Einträge ausblenden` : `▼ Ältere Einträge anzeigen (${olderEntriesCount})`;
                 this.classList.toggle("_btn_active", isHidden);
             };
@@ -544,6 +625,30 @@ function _injectPremiumStyles() {
         ._toast_success{background-color:#2ecc71;}
         ._toast_error{background-color:#e74c3c;}
         ._toast_info{background-color:#3498db;}
+        
+        /* CSS für das Mülleimer Icon */
+        ._btn_icon_delete {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        ._btn_icon_delete:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        ._btn_icon_delete:active {
+            transform: scale(0.95);
+        }
     `;
     document.head.appendChild(s);
 }
