@@ -27,6 +27,7 @@ window._initApp = async function(u) {
     _updateDatalists();
     _loadUserEntries(u);
     _loadWaffen(u);
+    _initAutoAufsicht();
     
     document.getElementById("_n_start").onclick = () => {
         document.getElementById("_start").style.display = "block";
@@ -59,10 +60,68 @@ window._initApp = async function(u) {
     document.getElementById("_sb").onclick = _saveEntry;
     document.getElementById("_save_w_btn").onclick = async () => { await _saveWaffe(u); };
     
-    // Modal Buttons binden
     document.getElementById("_btn_cancel_delete").onclick = window._hideDeleteModal;
     document.getElementById("_btn_confirm_delete").onclick = window._confirmDeleteAction;
 };
+
+let inactivityTimerInterval;
+let timeLeft = 300; 
+
+function _startInactivityTimer() {
+    const displays = document.querySelectorAll("._timer_display");
+    
+    const resetTimer = () => {
+        timeLeft = 300;
+        displays.forEach(d => d.textContent = "5:00");
+    };
+
+    ['mousedown', 'keypress', 'touchstart'].forEach(e => window.addEventListener(e, resetTimer));
+    
+    if (inactivityTimerInterval) clearInterval(inactivityTimerInterval);
+    
+    inactivityTimerInterval = setInterval(() => {
+        timeLeft--;
+        const mins = Math.floor(timeLeft / 60);
+        const secs = timeLeft % 60;
+        const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+        displays.forEach(d => d.textContent = timeStr);
+        
+        if (timeLeft <= 0) {
+            clearInterval(inactivityTimerInterval);
+            window._c.auth.signOut();
+            location.reload();
+        }
+    }, 1000);
+}
+
+function _initAutoAufsicht() {
+    document.getElementById("_d").addEventListener("change", async (e) => {
+        const val = e.target.value;
+        const auInput = document.getElementById("_au");
+        if (!val) return;
+
+        const d = new Date(val);
+        const day = d.getDay();
+
+        if (day !== 0 && day !== 5) {
+            auInput.value = "Mannschaftstraining";
+            return;
+        }
+
+        const [yyyy, mm, dd] = val.split('-');
+        const dbDateStr = `${parseInt(dd, 10)}/${parseInt(mm, 10)}/${yyyy}`;
+        
+        auInput.value = "Suche Aufsicht...";
+
+        if (day === 5) {
+            const { data } = await window._c.from("Standaufsichten").select('*').eq("Freitag", dbDateStr).maybeSingle();
+            auInput.value = (data && data["aufsicht 1"]) ? data["aufsicht 1"] : "Keine eingetragen";
+        } else if (day === 0) {
+            const { data } = await window._c.from("Standaufsichten").select('*').eq("Sonntag", dbDateStr).maybeSingle();
+            auInput.value = (data && data["aufsicht 2"]) ? data["aufsicht 2"] : "Keine eingetragen";
+        }
+    });
+}
 
 async function _saveWaffe(u) {
     const btn = document.getElementById("_save_w_btn");
@@ -119,7 +178,6 @@ async function _loadWaffen(u) {
             
             const li = document.createElement("li");
             li.style.cssText = "background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; padding: 15px; display: flex; justify-content: space-between; align-items: center;";
-            
             const safeName = w.waffe.replace(/'/g, "\\'");
             
             li.innerHTML = `
@@ -145,17 +203,12 @@ async function _loadWaffen(u) {
     }
 }
 
-// === UNIVERSELLE LÖSCH-LOGIK ===
 window._deleteData = { id: null, type: null };
 
 window._showDeleteModal = function(id, type, name) {
     window._deleteData = { id, type };
-    
     const title = type === 'waffe' ? 'Waffe löschen?' : 'Eintrag löschen?';
-    const text = type === 'waffe' 
-        ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?`
-        : `Möchtest du <strong>${name}</strong> wirklich löschen?`;
-        
+    const text = type === 'waffe' ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`;
     document.getElementById("_delete_modal_title").textContent = title;
     document.getElementById("_delete_modal_text").innerHTML = text;
     document.getElementById("_delete_modal").style.display = "flex";
@@ -168,38 +221,27 @@ window._hideDeleteModal = function() {
 
 window._confirmDeleteAction = async function() {
     if (!window._deleteData.id) return;
-    
     const btn = document.getElementById("_btn_confirm_delete");
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
-
-    // Je nach Typ die richtige Tabelle in Supabase wählen
     const table = window._deleteData.type === 'waffe' ? 'waffenspeicher' : 'entries';
     const { error } = await window._c.from(table).delete().eq("id", window._deleteData.id);
-
     btn.disabled = false;
     btn.innerHTML = "Löschen";
     window._hideDeleteModal();
-
     if (error) {
         _toast("Fehler beim Löschen.", "error");
     } else {
         _toast("Erfolgreich gelöscht!", "success");
         const { data: { user } } = await window._c.auth.getUser();
-        
-        // Entsprechende Liste aktualisieren
         if (window._deleteData.type === 'waffe') {
             _loadWaffen(user);
         } else {
             _loadUserEntries(user);
-            // Admin Panel ebenfalls updaten falls offen
-            if (document.getElementById("_an").style.display === "flex") {
-                _refreshOpenRequests();
-            }
+            if (document.getElementById("_an").style.display === "flex") _refreshOpenRequests();
         }
     }
 };
-// =============================
 
 function _toast(message, type = 'info') {
     const box = document.createElement("div");
@@ -216,7 +258,6 @@ function _toast(message, type = 'info') {
 function _updateDatalists() {
     const auHist = JSON.parse(localStorage.getItem("_hist_au") || "[]");
     const inAu = document.getElementById("_au");
-    
     if (inAu) {
         inAu.setAttribute("autocomplete", "off");
         inAu.setAttribute("list", "_dl_au");
@@ -231,7 +272,6 @@ async function _saveEntry() {
     if (window._isLimited('save')) return;
     const btn = document.getElementById("_sb");
     const originalText = btn.innerHTML;
-    
     const f = {
         d: document.getElementById("_d"),
         s: document.getElementById("_s"),
@@ -243,30 +283,22 @@ async function _saveEntry() {
         b: document.getElementById("_be")
     };
     
-    if (!f.d.value || !f.s.value || !f.ty.value || !f.di.value || !f.w.value || !f.au.value) {
-        return _toast("Pflichtfelder fehlen!", "error");
-    }
+    if (!f.d.value || !f.s.value || !f.ty.value || !f.w.value || !f.au.value) return _toast("Pflichtfelder fehlen!", "error");
     
     const inputDate = new Date(f.d.value);
     const dayOfWeek = inputDate.getDay(); 
-    
     if (dayOfWeek !== 0 && dayOfWeek !== 3 && dayOfWeek !== 5) {
-        if (!f.b.value.trim()) {
-            return _toast("Für abweichende Tage (außer Mi, Fr, So) MUSS eine Bemerkung eingetragen werden!", "error");
-        }
+        if (!f.b.value.trim()) return _toast("Für abweichende Tage (außer Mi, Fr, So) MUSS eine Bemerkung eingetragen werden!", "error");
     }
-    
     const today = new Date();
     today.setHours(23, 59, 59, 999);
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-    
     if (inputDate > today) return _toast("Fehler: Datum darf nicht in der Zukunft liegen.", "error");
     if (inputDate < twelveMonthsAgo) return _toast("Fehler: Eintrag darf nicht älter als 12 Monate sein.", "error");
     
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner"></span> Speichert...`;
-    
     const { data: { user } } = await window._c.auth.getUser();
     const { error } = await window._c.from("entries").insert([{
         user_id: user.id,
@@ -280,29 +312,22 @@ async function _saveEntry() {
         bemerkung: f.b.value.trim(),
         status: 'offen'
     }]);
-    
     btn.disabled = false;
     btn.innerHTML = originalText;
-    
     if (error) {
         _toast("Fehler beim Speichern.", "error");
     } else {
         _toast("Erfolgreich gespeichert!", "success");
-        
         let auHist = JSON.parse(localStorage.getItem("_hist_au") || "[]");
         if (f.au.value.trim() && !auHist.includes(f.au.value.trim())) {
             auHist.unshift(f.au.value.trim());
             localStorage.setItem("_hist_au", JSON.stringify(auHist.slice(0, 3)));
         }
-        
         _updateDatalists();
         Object.values(f).forEach(x => x.value = "");
         _loadUserEntries(user);
         _loadWaffen(user);
-        
-        if (document.getElementById("_an").style.display === "flex") {
-            _refreshOpenRequests();
-        }
+        if (document.getElementById("_an").style.display === "flex") _refreshOpenRequests();
     }
 }
 
@@ -317,24 +342,11 @@ async function _loadUserEntries(u) {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    
     const yearEntries = data ? data.filter(e => e.datum && e.datum.startsWith(currentYear.toString())) : [];
-    
     const monthsWithEntries = new Set();
-    yearEntries.forEach(e => {
-        if (e.datum) {
-            monthsWithEntries.add(parseInt(e.datum.split('-')[1], 10) - 1);
-        }
-    });
-    
+    yearEntries.forEach(e => { if (e.datum) monthsWithEntries.add(parseInt(e.datum.split('-')[1], 10) - 1); });
     let istRegelmaessig = true;
-    for (let m = 0; m <= currentMonth; m++) {
-        if (!monthsWithEntries.has(m)) {
-            istRegelmaessig = false;
-            break;
-        }
-    }
-    
+    for (let m = 0; m <= currentMonth; m++) { if (!monthsWithEntries.has(m)) { istRegelmaessig = false; break; } }
     const targetEntries = istRegelmaessig ? 12 : 18;
     const entriesThisYear = istRegelmaessig ? monthsWithEntries.size : yearEntries.length;
     
@@ -345,23 +357,13 @@ async function _loadUserEntries(u) {
     const dbCircle = document.getElementById("_db_circle");
     if (dbCircle) {
         let color = "#1b7e43";
-        
         if (entriesThisYear >= targetEntries) {
             color = "#1b7e43";
-            if (!dbCircle.dataset.celebrated) {
-                _triggerConfetti();
-                dbCircle.dataset.celebrated = "true";
-            }
-        } else if (entriesThisYear >= (targetEntries / 2)) {
-            color = "#f1c40f";
-        } else {
-            color = "#e74c3c";
-        }
-        
+            if (!dbCircle.dataset.celebrated) { _triggerConfetti(); dbCircle.dataset.celebrated = "true"; }
+        } else if (entriesThisYear >= (targetEntries / 2)) { color = "#f1c40f"; } else { color = "#e74c3c"; }
         const pct = Math.min(100, (entriesThisYear / targetEntries) * 100);
         dbCircle.style.background = `conic-gradient(${color} ${pct}%, #e0e0e0 ${pct}%)`;
         dbCircle.innerHTML = `<span>${entriesThisYear}</span>`;
-        
         const oldBar = document.getElementById("_db_p_wrap");
         if (oldBar) oldBar.remove();
     }
@@ -369,21 +371,16 @@ async function _loadUserEntries(u) {
     const l = document.getElementById("_ls");
     l.innerHTML = "";
     let hasOlderEntries = false, olderEntriesCount = 0;
-    
     if (data) {
         data.forEach(e => {
             const i = document.createElement("li");
             const c = e.status === 'bestätigt' ? '_s1' : '_s0';
-            
             let displayDate = e.datum;
             if (e.datum && e.datum.includes('-')) {
                 const parts = e.datum.split('-');
                 displayDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
             }
-
-            // Neues Flexbox-Layout für Einträge mit Lösch-Button
             i.style.cssText = "display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;";
-            
             i.innerHTML = `
                 <div style="flex: 1; text-align: left;">
                     <strong style="font-size: 1.05em;">${displayDate}</strong> <span style="color: #666;">(${e.typ || 'Training'})</span><br>
@@ -394,7 +391,6 @@ async function _loadUserEntries(u) {
                     <button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', 'entry', 'den Eintrag vom ${displayDate}')" title="Eintrag löschen">🗑️</button>
                 </div>
             `;
-            
             if (e.datum && !e.datum.startsWith(currentYear.toString())) {
                 i.classList.add("_older_entry");
                 i.style.display = "none";
@@ -403,19 +399,16 @@ async function _loadUserEntries(u) {
             }
             l.appendChild(i);
         });
-        
         if (hasOlderEntries) {
             const toggleLi = document.createElement("li");
             toggleLi.style.cssText = "list-style: none; text-align: center; margin-top: 15px;";
-            toggleLi.innerHTML = `<button id="_btn_toggle_older" class="_btn_secondary">▼ Ältere Einträge anzeigen (${olderEntriesCount})</button>`;
+            toggleLi.innerHTML = `<button id="_btn_toggle_older" class="_btn_toggle_older">▼ Ältere Einträge anzeigen (${olderEntriesCount})</button>`;
             l.appendChild(toggleLi);
-            
             toggleLi.querySelector("#_btn_toggle_older").onclick = function() {
                 const elements = l.querySelectorAll("._older_entry");
                 const isHidden = elements[0].style.display === "none";
                 elements.forEach(el => el.style.display = isHidden ? "flex" : "none");
                 this.textContent = isHidden ? `▲ Ältere Einträge ausblenden` : `▼ Ältere Einträge anzeigen (${olderEntriesCount})`;
-                this.classList.toggle("_btn_active", isHidden);
             };
         }
     }
@@ -440,10 +433,8 @@ async function _refreshOpenRequests() {
     const { data: e } = await window._c.from('entries').select('*').eq('status', 'offen').order('datum', { ascending: true });
     const { data: p } = await window._c.from('profiles').select('id,email');
     const openCount = e ? e.length : 0;
-    
     let badge = document.getElementById("_admin_badge");
     const adminTab = document.getElementById("_na");
-    
     if (adminTab) {
         if (!badge) {
             badge = document.createElement("span");
@@ -454,10 +445,8 @@ async function _refreshOpenRequests() {
         badge.textContent = openCount;
         badge.style.display = openCount > 0 ? "inline-block" : "none";
     }
-    
     const listContainer = document.getElementById("_al");
     listContainer.innerHTML = "";
-    
     if (e && e.length > 0) {
         e.forEach(x => {
             const r = p.find(z => z.id === x.user_id);
@@ -466,11 +455,9 @@ async function _refreshOpenRequests() {
             const entryDate = new Date(x.datum);
             const day = entryDate.getDay();
             const isRegular = (day === 0 || day === 3 || day === 5);
-            
             const i = document.createElement("li");
             i.id = `card_${x.id}`;
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
-            
             i.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="color: var(--primary); font-weight: bold; font-size: 0.95em;">${formattedDate}</span>
@@ -495,13 +482,9 @@ async function _refreshOpenRequests() {
 }
 
 window._approveEntry = async function(id, btn) {
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="_spinner"></span>`;
-    }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="_spinner"></span>`; }
     const card = document.getElementById(`card_${id}`);
     if (card) card.classList.add("_card_dismiss");
-    
     setTimeout(async () => {
         await window._c.from('entries').update({ status: 'bestätigt' }).eq('id', id);
         _toast("Eintrag erfolgreich freigegeben!", "success");
@@ -524,55 +507,31 @@ function _triggerConfetti() {
 
 async function _getExportData() {
     const period = document.getElementById("_ex_period").value;
-    if (!period) {
-        _toast("Bitte wähle erst einen Zeitraum aus!", "error");
-        return null;
-    }
-    
+    if (!period) { _toast("Bitte wähle erst einen Zeitraum aus!", "error"); return null; }
     const { data: profiles } = await window._c.from('profiles').select('id,email');
     let query = window._c.from('entries').select('*');
-    
     if (period !== "all") {
         const cutoff = new Date();
         cutoff.setMonth(cutoff.getMonth() - parseInt(period));
         query = query.gte('datum', cutoff.toISOString().split('T')[0]);
     }
-    
     const userFilter = document.getElementById("_ms").value;
     if (userFilter !== "all") query = query.eq('user_id', userFilter);
-    
     const { data: entries, error } = await query.order('datum', { ascending: false });
-    if (error || !entries || entries.length === 0) {
-        _toast("Keine Daten gefunden.", "error");
-        return null;
-    }
-    
+    if (error || !entries || entries.length === 0) { _toast("Keine Daten gefunden.", "error"); return null; }
     return entries.map(row => {
         const u = profiles.find(p => p.id === row.user_id);
         const dParts = row.datum.split('-');
         const formattedDate = `${dParts[2]}.${dParts[1]}.${dParts[0]}`;
-
-        return {
-            Datum: formattedDate,
-            Email: u ? u.email : 'Unbekannt',
-            Typ: row.typ || 'Training',
-            Schießstand: row.schiessstand,
-            Disziplin: row.disziplin,
-            Waffe: row.waffe,
-            Aufsicht: row.aufsicht,
-            Gast: row.gastschuetze || '-',
-            Status: row.status
-        };
+        return { Datum: formattedDate, Email: u ? u.email : 'Unbekannt', Typ: row.typ || 'Training', Schießstand: row.schiessstand, Disziplin: row.disziplin, Waffe: row.waffe, Aufsicht: row.aufsicht, Gast: row.gastschuetze || '-', Status: row.status };
     });
 }
 
 document.getElementById("_xe").onclick = async () => {
     const data = await _getExportData();
     if (!data) return;
-    
     const select = document.getElementById("_ms");
     const nameSuffix = select.value === "all" ? "Alle_Mitglieder" : select.options[select.selectedIndex].text.replace(/[^a-z0-9]/gi, '_');
-    
     const ws = window.XLSX.utils.json_to_sheet(data);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "Schießnachweis");
@@ -583,37 +542,16 @@ document.getElementById("_xe").onclick = async () => {
 document.getElementById("_pdf").onclick = async () => {
     const data = await _getExportData();
     if (!data) return;
-    
     const select = document.getElementById("_ms");
     const email = select.options[select.selectedIndex].text;
     const nameSuffix = select.value === "all" ? "Alle_Mitglieder" : email.replace(/[^a-z0-9]/gi, '_');
-    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('l', 'mm', 'a4');
-    
     doc.text(`SSV Schmidhausen Export - ${email}`, 14, 15);
-    doc.autoTable({
-        head: [Object.keys(data[0])],
-        body: data.map(v => Object.values(v)),
-        startY: 20
-    });
-    
+    doc.autoTable({ head: [Object.keys(data[0])], body: data.map(v => Object.values(v)), startY: 20 });
     doc.save(`SSV_Export_${nameSuffix}_${new Date().toISOString().split('T')[0]}.pdf`);
     _toast("PDF-Export erfolgreich generiert!", "success");
 };
-
-function _startInactivityTimer() {
-    let t;
-    const r = () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-            window._c.auth.signOut();
-            location.reload();
-        }, 300000);
-    };
-    ['mousedown', 'keypress', 'touchstart'].forEach(e => window.addEventListener(e, r));
-    r();
-}
 
 function _injectPremiumStyles() {
     if (document.getElementById("_premium_styles")) return;
@@ -625,30 +563,21 @@ function _injectPremiumStyles() {
         ._toast_success{background-color:#2ecc71;}
         ._toast_error{background-color:#e74c3c;}
         ._toast_info{background-color:#3498db;}
-        
-        /* CSS für das Mülleimer Icon */
         ._btn_icon_delete {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            font-size: 1.1em;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
+            background: #e74c3c; color: white; border: none; border-radius: 6px;
+            width: 32px; height: 32px; font-size: 1.1em; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
             transition: background 0.2s, transform 0.1s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        ._btn_icon_delete:hover {
-            background: #c0392b;
-            transform: scale(1.05);
+        ._btn_icon_delete:hover { background: #c0392b; transform: scale(1.05); }
+        ._btn_icon_delete:active { transform: scale(0.95); }
+        ._btn_toggle_older {
+            background: #fff; color: #7f8c8d; border: 1px dashed #ccc;
+            padding: 8px 20px; border-radius: 20px; cursor: pointer;
+            font-size: 0.85em; transition: all 0.3s; display: inline-block; margin: 10px 0;
         }
-        ._btn_icon_delete:active {
-            transform: scale(0.95);
-        }
+        ._btn_toggle_older:hover { border-color: #3498db; color: #3498db; background: #f0f7ff; }
     `;
     document.head.appendChild(s);
 }
