@@ -63,13 +63,6 @@
         opacity: 0.9;
         display: block;
     }
-    h3 { 
-        color: var(--primary); 
-        text-transform: uppercase; 
-        margin-top: 0;
-        font-size: 1.2em;
-        letter-spacing: 0.5px;
-    }
     
     ._c {
         width: 90%;
@@ -85,14 +78,35 @@
     
     ._hr { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 20px; }
     
-    ._ub_style {
+    /* Layout für den Kopfbereich der einzelnen Tabs */
+    ._top_head {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.85em;
+        width: 100%;
+    }
+    
+    ._top_head h3 {
+        color: var(--primary); 
+        text-transform: uppercase; 
+        margin: 0;
+        font-size: 1.2em;
+        letter-spacing: 0.5px;
     }
 
-    ._mb, ._lo_btn, ._ba, ._nb button {
+    ._top_actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    ._timer_display {
+        font-size: 0.85em;
+        font-weight: bold;
+        color: #f39c12;
+    }
+
+    ._mb, ._ba, ._nb button {
         background: var(--primary) !important;
         color: var(--white) !important;
         border: none !important;
@@ -110,12 +124,17 @@
     
     ._lo_btn {
         width: auto;
-        padding: 6px 14px !important;
+        padding: 6px 12px !important;
         font-size: 0.8em;
         background: var(--danger) !important;
         margin: 0;
         border-radius: 5px;
         transition: background-color 0.2s ease, transform 0.1s ease;
+        color: white;
+        border: none;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
     }
     ._lo_btn:hover { background: #c0392b !important; }
     ._lo_btn:active { transform: scale(0.95); }
@@ -162,14 +181,14 @@
 
 <div class="_c" id="_start" style="display:none;">
     <div class="_hr">
-        <h3>Startseite</h3>
-        <div class="_ub_style">
-            <span class="_dmn_text _cur_user"></span>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
-                <span class="_timer_display" style="font-size:0.75em;color:#f39c12;font-weight:bold;">5:00</span>
+        <div class="_top_head">
+            <h3>Startseite</h3>
+            <div class="_top_actions">
+                <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
+        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #777;"></span></div>
     </div>
     
     <div class="_db_box">
@@ -190,14 +209,14 @@
 
 <div class="_c" id="_a" style="display:none;">
     <div class="_hr">
-        <h3>Neuer Eintrag</h3>
-        <div class="_ub_style">
-            <span class="_dmn_text _cur_user"></span>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
-                <span class="_timer_display" style="font-size:0.75em;color:#f39c12;font-weight:bold;">5:00</span>
+        <div class="_top_head">
+            <h3>Neuer Eintrag</h3>
+            <div class="_top_actions">
+                <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
+        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #777;"></span></div>
     </div>
     
     <p style="font-size:0.75em;color:#777;margin:0 0 10px 0;text-align:left;">* Pflichtfelder</p>
@@ -222,14 +241,14 @@
 
 <div class="_c" id="_av" style="display:none;">
     <div class="_hr">
-        <h3>Export & Freigabe</h3>
-        <div class="_ub_style">
-            <span class="_dmn_text _cur_user"></span>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
-                <span class="_timer_display" style="font-size:0.75em;color:#f39c12;font-weight:bold;">5:00</span>
+        <div class="_top_head">
+            <h3>Export & Freigabe</h3>
+            <div class="_top_actions">
+                <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
+        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #777;"></span></div>
     </div>
     <label>Mitglied filtern:</label><select id="_ms"><option value="all">-- Alle Mitglieder --</option></select>
     <label>Zeitraum für Export *:</label>

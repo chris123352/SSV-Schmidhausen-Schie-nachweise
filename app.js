@@ -64,35 +64,45 @@ window._initApp = async function(u) {
     document.getElementById("_btn_confirm_delete").onclick = window._confirmDeleteAction;
 };
 
+// === TIMER LOGIK FÜR 3 MINUTEN (ROBUST AUCH BEI TAB-WECHSEL) ===
 let inactivityTimerInterval;
-let timeLeft = 300; 
+let endTime;
 
 function _startInactivityTimer() {
     const displays = document.querySelectorAll("._timer_display");
+    const duration = 180; // 3 Minuten in Sekunden
     
     const resetTimer = () => {
-        timeLeft = 300;
-        displays.forEach(d => d.textContent = "5:00");
+        // Merke dir den absoluten Endzeitpunkt in Millisekunden
+        endTime = Date.now() + (duration * 1000);
+        displays.forEach(d => d.textContent = "3:00");
     };
 
-    ['mousedown', 'keypress', 'touchstart'].forEach(e => window.addEventListener(e, resetTimer));
+    // Bei Interaktion den Timer zurücksetzen
+    ['mousedown', 'keypress', 'touchstart', 'scroll'].forEach(e => window.addEventListener(e, resetTimer));
     
+    resetTimer(); // Timer initialisieren
+
     if (inactivityTimerInterval) clearInterval(inactivityTimerInterval);
     
-    inactivityTimerInterval = setInterval(() => {
-        timeLeft--;
-        const mins = Math.floor(timeLeft / 60);
-        const secs = timeLeft % 60;
-        const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
-        displays.forEach(d => d.textContent = timeStr);
+    inactivityTimerInterval = setInterval(async () => {
+        // Berechne die verbleibende Zeit basierend auf der tatsächlichen Uhrzeit
+        const timeLeft = Math.round((endTime - Date.now()) / 1000);
         
         if (timeLeft <= 0) {
             clearInterval(inactivityTimerInterval);
-            window._c.auth.signOut();
+            displays.forEach(d => d.textContent = "0:00");
+            await window._c.auth.signOut();
             location.reload();
+        } else {
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            displays.forEach(d => d.textContent = timeStr);
         }
     }, 1000);
 }
+// ================================================================
 
 function _initAutoAufsicht() {
     document.getElementById("_d").addEventListener("change", async (e) => {
