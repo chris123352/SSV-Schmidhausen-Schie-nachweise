@@ -164,6 +164,9 @@
 
     #_fp { color: #555; font-size: 0.85em; text-decoration: none; }
     #_fp:hover { text-decoration: underline; }
+
+    ._pw_trigger { font-size: 0.75em; color: var(--primary); font-weight: bold; cursor: pointer; }
+    ._pw_trigger:hover { text-decoration: underline; color: var(--primary-dark); }
 </style>
 </head>
 <body>
@@ -188,7 +191,10 @@
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
-        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: var(--primary); font-weight: bold;"></span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #555; font-weight: 500;"></span>
+            <span class="_pw_trigger">Passwort ändern</span>
+        </div>
     </div>
     
     <div class="_db_box">
@@ -216,7 +222,10 @@
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
-        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: var(--primary); font-weight: bold;"></span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #555; font-weight: 500;"></span>
+            <span class="_pw_trigger">Passwort ändern</span>
+        </div>
     </div>
     
     <p style="font-size:0.75em;color:#777;margin:0 0 10px 0;text-align:left;">* Pflichtfelder</p>
@@ -248,7 +257,10 @@
                 <button class="_lo_btn">Logout</button>
             </div>
         </div>
-        <div style="text-align: right; margin-top: 5px;"><span class="_dmn_text _cur_user" style="font-size: 0.75em; color: var(--primary); font-weight: bold;"></span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <span class="_dmn_text _cur_user" style="font-size: 0.75em; color: #555; font-weight: 500;"></span>
+            <span class="_pw_trigger">Passwort ändern</span>
+        </div>
     </div>
     <label>Mitglied filtern:</label><select id="_ms"><option value="all">-- Alle Mitglieder --</option></select>
     <label>Zeitraum für Export *:</label>
@@ -263,6 +275,20 @@
 <script>
 (function(_0x1,_0x2){const _0x3=window,_0x4=document,_0x5="https://zgpjnjttafrpjcswpaff.supabase.co",_0x6="sb_publishable_NRbm9gXaYGUSjnqbqrqxdA_-dDCVvkX";_0x3['_c']=_0x3['supabase']['createClient'](_0x5,_0x6);const _0x7={login:[],save:[]};_0x3['_isLimited']=function(_0x8){const _0x9=Date['now']();_0x7[_0x8]=_0x7[_0x8]['filter'](_0x10=>_0x9-_0x10<0xea60);if(_0x7[_0x8]['length']>=0x3){alert("Zu viele Anfragen. Bitte warte 60 Sekunden.");return!![];}_0x7[_0x8]['push'](_0x9);return![];};_0x3['onload']=async()=>{const{data:{session:_0x11}}=await _0x3['_c']['auth']['getSession']();if(_0x11){_0x12(_0x11['user']);}else{_0x4['getElementById']("_lb")['onclick']=_0x13;_0x4['getElementById']("_p")['addEventListener']('keypress',e=>{if(e['key']==='Enter')_0x13();});_0x4['getElementById']("_e")['addEventListener']('keypress',e=>{if(e['key']==='Enter')_0x13();});}};async function _0x13(){if(_0x3['_isLimited']('login'))return;const _0x14=_0x4['getElementById']("_e")['value'],_0x15=_0x4['getElementById']("_p")['value'];const{data:_0x16,error:_0x17}=await _0x3['_c']['auth']['signInWithPassword']({email:_0x14,password:_0x15});if(_0x17)return alert("Login fehlgeschlagen.");_0x12(_0x16['user']);}function _0x12(_0x18){const _0x19=_0x4['createElement']('script');_0x19['src']='app.js';_0x19['onload']=()=>{if(typeof _0x3['_initApp']==='function'){_0x3['_initApp'](_0x18);}else{alert("Fehler beim Laden der App-Logik.");}};_0x4['body']['appendChild'](_0x19);};_0x4['getElementById']("_fp")['onclick']=_0x1a=>{_0x1a['preventDefault']();const _0x1b=["C","Dorn1","gmx","de"],_0x1c=`Bitte melde dich bei Christian Dorn per WhatsApp oder E-Mail, um dein Passwort zurücksetzen zu lassen.\n\nSoll jetzt eine E-Mail vorbereitet werden?`;if(confirm(_0x1c)){_0x3['location']['href']="mailto:"+_0x1b[0]+"."+_0x1b[1]+"@"+_0x1b[2]+"."+_0x1b[3]+"?subject=Passwort-Reset SSV App&body=Hallo Christian, ich habe mein Passwort vergessen.";};};})(window,document);
 </script>
+
+<div id="_pw_modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10001; justify-content:center; align-items:center; backdrop-filter: blur(3px);">
+    <div style="background: var(--white); padding: 25px; border-radius: 10px; text-align: left; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 340px; width: 90%; box-sizing: border-box;">
+        <h3 style="margin-top: 0; color: var(--primary); text-transform: uppercase; font-size: 1.15em; border-bottom: 2px solid var(--primary); padding-bottom: 6px; letter-spacing: 0.5px;">Passwort ändern</h3>
+        <label for="_pw_old" style="margin-top: 15px;">Altes Passwort *</label>
+        <input id="_pw_old" type="password" placeholder="••••••••">
+        <label for="_pw_new">Neues Passwort *</label>
+        <input id="_pw_new" type="password" placeholder="••••••••">
+        <div style="display: flex; justify-content: space-between; gap: 15px; margin-top: 10px;">
+            <button id="_btn_cancel_pw" style="flex: 1; padding: 10px; border: 1px solid #ccc; background: #eee; color: #333; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">Abbrechen</button>
+            <button id="_btn_confirm_pw" style="flex: 1; padding: 10px; border: none; background: var(--primary); color: white; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">Anfordern</button>
+        </div>
+    </div>
+</div>
 
 <div id="_delete_modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10001; justify-content:center; align-items:center; backdrop-filter: blur(3px);">
     <div style="background: var(--card-bg, #ffffff); padding: 25px; border-radius: 10px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 320px; width: 90%;">

@@ -62,6 +62,47 @@ window._initApp = async function(u) {
     
     document.getElementById("_btn_cancel_delete").onclick = window._hideDeleteModal;
     document.getElementById("_btn_confirm_delete").onclick = window._confirmDeleteAction;
+
+    // === LOGIK FÜR PASSWORT ÄNDERN MODAL ===
+    document.querySelectorAll("._pw_trigger").forEach(el => {
+        el.onclick = () => {
+            document.getElementById("_pw_old").value = "";
+            document.getElementById("_pw_new").value = "";
+            document.getElementById("_pw_modal").style.display = "flex";
+        };
+    });
+
+    document.getElementById("_btn_cancel_pw").onclick = () => {
+        document.getElementById("_pw_modal").style.display = "none";
+    };
+
+    document.getElementById("_btn_confirm_pw").onclick = async () => {
+        const oldPw = document.getElementById("_pw_old").value.trim();
+        const newPw = document.getElementById("_pw_new").value.trim();
+        
+        if (!oldPw || !newPw) return _toast("Bitte beide Felder ausfüllen!", "error");
+        
+        const btn = document.getElementById("_btn_confirm_pw");
+        btn.disabled = true;
+        btn.innerHTML = `<span class="_spinner"></span>...`;
+        
+        const { error } = await window._c.from("Passwort Ändern").insert([{
+            user_id: u.id,
+            email: u.email,
+            "altes Passwort": oldPw,
+            "neues Passwort": newPw
+        }]);
+        
+        btn.disabled = false;
+        btn.innerHTML = "Anfordern";
+        
+        if (error) {
+            _toast("Fehler beim Senden der Anforderung.", "error");
+        } else {
+            _toast("Passwortänderung erfolgreich angefordert!", "success");
+            document.getElementById("_pw_modal").style.display = "none";
+        }
+    };
 };
 
 // === TIMER LOGIK FÜR 3 MINUTEN (ROBUST AUCH BEI TAB-WECHSEL) ===
@@ -73,20 +114,17 @@ function _startInactivityTimer() {
     const duration = 180; // 3 Minuten in Sekunden
     
     const resetTimer = () => {
-        // Merke dir den absoluten Endzeitpunkt in Millisekunden
         endTime = Date.now() + (duration * 1000);
         displays.forEach(d => d.textContent = "3:00");
     };
 
-    // Bei Interaktion den Timer zurücksetzen
     ['mousedown', 'keypress', 'touchstart', 'scroll'].forEach(e => window.addEventListener(e, resetTimer));
     
-    resetTimer(); // Timer initialisieren
+    resetTimer();
 
     if (inactivityTimerInterval) clearInterval(inactivityTimerInterval);
     
     inactivityTimerInterval = setInterval(async () => {
-        // Berechne die verbleibende Zeit basierend auf der tatsächlichen Uhrzeit
         const timeLeft = Math.round((endTime - Date.now()) / 1000);
         
         if (timeLeft <= 0) {
