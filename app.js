@@ -255,10 +255,18 @@ window._deleteData = { id: null, type: null };
 
 window._showDeleteModal = function(id, type, name) {
     window._deleteData = { id, type };
-    const title = type === 'waffe' ? 'Waffe löschen?' : 'Eintrag löschen?';
-    const text = type === 'waffe' ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`;
+    const isWeapon = type === 'waffe';
+    const isRequest = type === 'request_entry_deletion';
+    const isAdminDelete = type === 'approve_entry_deletion';
+    const title = isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?');
+    const text = isRequest
+        ? `Möchtest du die Löschung von <strong>${name}</strong> bei einem Administrator beantragen?`
+        : (isAdminDelete
+            ? `Möchtest du <strong>${name}</strong> endgültig löschen?`
+            : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`));
     document.getElementById("_delete_modal_title").textContent = title;
     document.getElementById("_delete_modal_text").innerHTML = text;
+    document.getElementById("_btn_confirm_delete").textContent = isRequest ? "Beantragen" : (isAdminDelete ? "Endgültig löschen" : "Löschen");
     document.getElementById("_delete_modal").style.display = "flex";
 };
 
@@ -269,24 +277,39 @@ window._hideDeleteModal = function() {
 
 window._confirmDeleteAction = async function() {
     if (!window._deleteData.id) return;
+    const { id, type } = window._deleteData;
     const btn = document.getElementById("_btn_confirm_delete");
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
-    const table = window._deleteData.type === 'waffe' ? 'waffenspeicher' : 'entries';
-    const { error } = await window._c.from(table).delete().eq("id", window._deleteData.id);
+    let error;
+    if (type === 'request_entry_deletion') {
+        const result = await window._c.from('entries').update({ status: 'loeschung_beantragt' })
+            .eq('id', id).eq('status', 'bestätigt').select('id');
+        error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr freigegeben."));
+    } else {
+        const table = type === 'waffe' ? 'waffenspeicher' : 'entries';
+        let query = window._c.from(table).delete().eq("id", id);
+        if (type === 'approve_entry_deletion') {
+            query = query.eq('status', 'loeschung_beantragt');
+        } else if (type === 'entry') {
+            query = query.neq('status', 'bestätigt').neq('status', 'loeschung_beantragt');
+        }
+        const result = await query.select('id');
+        error = result.error || (result.data.length ? null : new Error("Der Eintrag kann mit diesem Status nicht gelöscht werden."));
+    }
     btn.disabled = false;
-    btn.innerHTML = "Löschen";
+    btn.textContent = "Löschen";
     window._hideDeleteModal();
     if (error) {
-        _toast("Fehler beim Löschen.", "error");
+        _toast(type === 'request_entry_deletion' ? "Fehler beim Beantragen der Löschung." : "Fehler beim Löschen.", "error");
     } else {
-        _toast("Erfolgreich gelöscht!", "success");
+        _toast(type === 'request_entry_deletion' ? "Löschung wurde beantragt." : "Erfolgreich gelöscht!", "success");
         const { data: { user } } = await window._c.auth.getUser();
-        if (window._deleteData.type === 'waffe') {
+        if (type === 'waffe') {
             _loadWaffen(user);
         } else {
             _loadUserEntries(user);
-            if (document.getElementById("_an").style.display === "flex") _refreshOpenRequests();
+            if (document.getElementById("_na").style.display !== "none") _refreshOpenRequests();
         }
     }
 };
@@ -423,6 +446,7 @@ async function _loadUserEntries(u) {
         data.forEach(e => {
             const i = document.createElement("li");
             const c = e.status === 'bestätigt' ? '_s1' : '_s0';
+            const statusLabel = e.status === 'loeschung_beantragt' ? 'Löschung beantragt' : (e.status || 'offen');
             let displayDate = e.datum;
             if (e.datum && e.datum.includes('-')) {
                 const parts = e.datum.split('-');
@@ -435,8 +459,10 @@ async function _loadUserEntries(u) {
                     <small style="color: #555; display: inline-block; margin-top: 5px;">${e.disziplin} | ${e.waffe}</small>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                    <span class="_sb_badge ${c}" style="position: relative; right: auto; top: auto; margin: 0;">${e.status || 'offen'}</span>
-                    <button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', 'entry', 'den Eintrag vom ${displayDate}')" title="Eintrag löschen">🗑️</button>
+                    <span class="_sb_badge ${c}" style="position: relative; right: auto; top: auto; margin: 0;">${statusLabel}</span>
+                    ${e.status === 'loeschung_beantragt'
+                        ? ''
+                        : `<button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', '${e.status === 'bestätigt' ? 'request_entry_deletion' : 'entry'}', 'den Eintrag vom ${displayDate}')" title="${e.status === 'bestätigt' ? 'Löschung beantragen' : 'Eintrag löschen'}">🗑️</button>`}
                 </div>
             `;
             if (e.datum && !e.datum.startsWith(currentYear.toString())) {
@@ -478,7 +504,7 @@ async function _loadAdminPanel() {
 }
 
 async function _refreshOpenRequests() {
-    const { data: e } = await window._c.from('entries').select('*').eq('status', 'offen').order('datum', { ascending: true });
+    const { data: e } = await window._c.from('entries').select('*').in('status', ['offen', 'loeschung_beantragt']).order('datum', { ascending: true });
     const { data: p } = await window._c.from('profiles').select('id,email');
     const openCount = e ? e.length : 0;
     let badge = document.getElementById("_admin_badge");
@@ -506,10 +532,13 @@ async function _refreshOpenRequests() {
             const i = document.createElement("li");
             i.id = `card_${x.id}`;
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
+            const isDeletionRequest = x.status === 'loeschung_beantragt';
             i.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="color: var(--primary); font-weight: bold; font-size: 0.95em;">${formattedDate}</span>
-                    ${!isRegular ? `<span style="color: #e67e22; font-weight: bold; font-size: 0.75em; white-space: nowrap;">⚠️ Ausnahme</span>` : ''}
+                    ${isDeletionRequest
+                        ? `<span style="color: #c0392b; font-weight: bold; font-size: 0.75em; white-space: nowrap;">Löschung beantragt</span>`
+                        : (!isRegular ? `<span style="color: #e67e22; font-weight: bold; font-size: 0.75em; white-space: nowrap;">⚠️ Ausnahme</span>` : '')}
                 </div>
                 <div class="_card_details" style="background: ${isRegular ? '#f0f0f0' : '#faeedf'}; padding: 12px; border-radius: 6px;">
                     <strong style="color: var(--text); word-break: break-all; font-size: 0.95em; display: block; margin-bottom: 8px; border-bottom: 1px solid ${isRegular ? '#e0e0e0' : '#eedcc5'}; padding-bottom: 6px;">${r ? r.email : 'Unbekannt'}</strong>
@@ -520,7 +549,9 @@ async function _refreshOpenRequests() {
                     <strong>Aufsicht:</strong> ${x.aufsicht}
                     ${x.bemerkung ? `<br><strong style="color: #c0392b;">Bemerkung:</strong> <span style="font-style: italic; color: #333;">${x.bemerkung}</span>` : ''}
                 </div>
-                <button onclick="window._approveEntry('${x.id}', this)" class="_ba">✓ Jetzt Freigeben</button>
+                ${isDeletionRequest
+                    ? `<button onclick="window._showDeleteModal('${x.id}', 'approve_entry_deletion', 'den Eintrag vom ${formattedDate}')" class="_ba" style="background:var(--danger)!important;">Löschung bestätigen</button>`
+                    : `<button onclick="window._approveEntry('${x.id}', this)" class="_ba">✓ Jetzt Freigeben</button>`}
             `;
             listContainer.appendChild(i);
         });
