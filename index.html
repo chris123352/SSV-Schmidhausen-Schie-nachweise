@@ -142,6 +142,8 @@
     ._nb { display: none; gap: 10px; width: 90%; max-width: 450px; margin-top: 20px; }
     ._nb button { flex: 1; margin: 0; padding: 10px !important; font-size: 0.85em; }
     ._nb button._ax { background: var(--primary-dark) !important; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+    ._dw_pay { width: 100%; padding: 9px 12px; border: 1px solid var(--danger); border-radius: 6px; background: white; color: var(--danger); font-weight: bold; cursor: pointer; }
+    ._dw_pay[aria-pressed="true"] { background: var(--danger); color: white; }
     
     label { display: block; text-align: left; font-weight: 600; font-size: 0.85em; margin-top: 12px; color: #555; }
     input, select { width: 100%; padding: 10px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 6px; font-family: inherit; margin: 6px 0 12px 0; box-sizing: border-box; font-size: 0.95em; }
@@ -179,6 +181,7 @@
 <div class="_nb" id="_an">
     <button id="_n_start" class="_ax">Startseite</button>
     <button id="_nu">Einträge</button>
+    <button id="_ndw" style="display:none;">Dienstwünsche</button>
     <button id="_na">Admin</button>
 </div>
 
@@ -245,6 +248,79 @@
     <label for="_be">Bemerkung (Optional)</label><input id="_be" placeholder="Sonstiges...">
     <button id="_sb" class="_mb">Eintrag Speichern</button>
     <h3 id="_met" style="margin-top:40px;border-bottom:2px solid var(--primary);padding-bottom:5px;text-align:left;">Meine Einträge</h3><ul id="_ls"></ul>
+</div>
+
+<div class="_c" id="_dw" style="display:none;">
+    <div class="_hr">
+        <div class="_top_head">
+            <h3>Dienstwünsche</h3>
+            <div class="_top_actions">
+                <span class="_timer_display">3:00</span>
+                <button class="_lo_btn">Logout</button>
+            </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+            <span class="_dmn_text _cur_user" style="font-size:0.75em;color:#555;font-weight:500;"></span>
+            <span class="_pw_trigger">Passwort ändern</span>
+        </div>
+    </div>
+
+    <div style="background:#f0f7f2;border-left:4px solid var(--primary);padding:12px;border-radius:6px;text-align:left;margin-bottom:20px;">
+        <strong>Standaufsicht:</strong> 1x pro Jahr ist Pflicht!<br>
+        <small>Jede weitere Standaufsicht wird voll auf die Arbeitsstunden angerechnet.</small><br>
+        <strong style="display:inline-block;margin-top:8px;">Wirtschaftsdienst:</strong><br>
+        <small>Wirtschaftsdienst wird voll auf die Arbeitsstunden angerechnet.</small>
+    </div>
+
+    <section class="_duty_section" data-duty="standaufsicht">
+        <h4 style="margin:20px 0 5px;text-align:left;border-bottom:1px solid var(--border);padding-bottom:6px;">Standaufsicht</h4>
+        <div style="display:flex;align-items:center;gap:14px;margin:10px 0;">
+            <label for="_dw_sa_count" style="margin:0;">Anzahl</label>
+            <select id="_dw_sa_count" style="width:64px;margin:0;padding:7px;text-align:center;">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:normal;">
+                <input id="_dw_sa_any" type="checkbox" style="width:auto;margin:0;">
+                Datum egal
+            </label>
+        </div>
+        <button id="_dw_sa_pay" type="button" class="_dw_pay" aria-pressed="false">Kein Dienst – ich bezahle</button>
+        <div id="_dw_sa_calendar_wrap">
+            <p style="font-size:0.82em;color:#666;text-align:left;margin:0 0 8px;">Klicke den Freitag an. Damit ist das Dienstwochenende am Freitag und Sonntag markiert.</p>
+            <div id="_dw_sa_calendar"></div>
+        </div>
+        <label for="_dw_sa_note">Kommentar (optional)</label>
+        <textarea id="_dw_sa_note" rows="2" placeholder="z.B. Datum egal, solange in den Sommerferien" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+    </section>
+
+    <section class="_duty_section" data-duty="wirtschaftsdienst" style="margin-top:24px;">
+        <h4 style="margin:20px 0 5px;text-align:left;border-bottom:1px solid var(--border);padding-bottom:6px;">Wirtschaftsdienst</h4>
+        <div style="display:flex;align-items:center;gap:14px;margin:10px 0;">
+            <label for="_dw_wd_count" style="margin:0;">Anzahl</label>
+            <select id="_dw_wd_count" style="width:64px;margin:0;padding:7px;text-align:center;">
+                <option value="1" selected>1</option>
+                <option value="0">0</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:normal;">
+                <input id="_dw_wd_any" type="checkbox" style="width:auto;margin:0;">
+                Datum egal
+            </label>
+        </div>
+        <button id="_dw_wd_pay" type="button" class="_dw_pay" aria-pressed="false">Kein Dienst – ich bezahle</button>
+        <div id="_dw_wd_calendar_wrap">
+            <p style="font-size:0.82em;color:#666;text-align:left;margin:0 0 8px;">Klicke den Freitag an. Damit ist das Dienstwochenende am Freitag und Sonntag markiert.</p>
+            <div id="_dw_wd_calendar"></div>
+        </div>
+        <label for="_dw_wd_note">Kommentar (optional)</label>
+        <textarea id="_dw_wd_note" rows="2" placeholder="z.B. Datum egal, solange in den Sommerferien" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+    </section>
+
+    <button id="_dw_submit" class="_mb" style="margin-top:24px;">Dienstwünsche abschicken</button>
+    <p id="_dw_success" style="display:none;color:var(--primary);font-weight:bold;text-align:center;">Deine Dienstwünsche wurden erfolgreich abgeschickt. Vielen Dank!</p>
 </div>
 
 <div class="_c" id="_av" style="display:none;">

@@ -1,9 +1,14 @@
+// Temporarily show or hide the member-facing duty wish feature here.
+const _DIENSTWUENSCHE_AKTIV = true;
+
 window._initApp = async function(u) {
     _injectPremiumStyles();
     
     document.getElementById("_la").style.display = "none";
     document.getElementById("_start").style.display = "block";
     document.getElementById("_a").style.display = "none";
+    document.getElementById("_dw").style.display = "none";
+    document.getElementById("_ndw").style.display = _DIENSTWUENSCHE_AKTIV ? "" : "none";
     
     document.querySelectorAll("._cur_user").forEach(el => el.textContent = u.email);
     
@@ -28,21 +33,38 @@ window._initApp = async function(u) {
     _loadUserEntries(u);
     _loadWaffen(u);
     _initAutoAufsicht();
+    if (_DIENSTWUENSCHE_AKTIV) _initDutyWishes(u);
     
     document.getElementById("_n_start").onclick = () => {
         document.getElementById("_start").style.display = "block";
         document.getElementById("_a").style.display = "none";
+        document.getElementById("_dw").style.display = "none";
         document.getElementById("_av").style.display = "none";
         document.getElementById("_n_start").classList.add("_ax");
         document.getElementById("_nu").classList.remove("_ax");
+        document.getElementById("_ndw").classList.remove("_ax");
         document.getElementById("_na").classList.remove("_ax");
     };
 
     document.getElementById("_nu").onclick = () => {
         document.getElementById("_start").style.display = "none";
         document.getElementById("_av").style.display = "none";
+        document.getElementById("_dw").style.display = "none";
         document.getElementById("_a").style.display = "block";
         document.getElementById("_nu").classList.add("_ax");
+        document.getElementById("_ndw").classList.remove("_ax");
+        document.getElementById("_na").classList.remove("_ax");
+        document.getElementById("_n_start").classList.remove("_ax");
+    };
+
+    document.getElementById("_ndw").onclick = () => {
+        if (!_DIENSTWUENSCHE_AKTIV) return;
+        document.getElementById("_start").style.display = "none";
+        document.getElementById("_a").style.display = "none";
+        document.getElementById("_dw").style.display = "block";
+        document.getElementById("_av").style.display = "none";
+        document.getElementById("_ndw").classList.add("_ax");
+        document.getElementById("_nu").classList.remove("_ax");
         document.getElementById("_na").classList.remove("_ax");
         document.getElementById("_n_start").classList.remove("_ax");
     };
@@ -50,10 +72,12 @@ window._initApp = async function(u) {
     document.getElementById("_na").onclick = () => {
         document.getElementById("_start").style.display = "none";
         document.getElementById("_a").style.display = "none";
+        document.getElementById("_dw").style.display = "none";
         document.getElementById("_av").style.display = "block";
         document.getElementById("_na").classList.add("_ax");
         document.getElementById("_nu").classList.remove("_ax");
         document.getElementById("_n_start").classList.remove("_ax");
+        document.getElementById("_ndw").classList.remove("_ax");
         _refreshOpenRequests();
     };
 
@@ -104,6 +128,253 @@ window._initApp = async function(u) {
         }
     };
 };
+
+const _dwChoices = { standaufsicht: [], wirtschaftsdienst: [] };
+const _dwMonthOffsets = { standaufsicht: 0, wirtschaftsdienst: 0 };
+const _dwBookedDates = { standaufsicht: {}, wirtschaftsdienst: {} };
+const _dwFlexibleRequests = { standaufsicht: 0, wirtschaftsdienst: 0 };
+const _dwAvailabilityErrors = { standaufsicht: null, wirtschaftsdienst: null };
+const _dwPaySelected = { standaufsicht: false, wirtschaftsdienst: false };
+
+function _dateToLocalIso(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function _initDutyWishes(user) {
+    const services = [
+        { key: "standaufsicht", prefix: "_dw_sa", label: "Standaufsicht" },
+        { key: "wirtschaftsdienst", prefix: "_dw_wd", label: "Wirtschaftsdienst" }
+    ];
+
+    services.forEach(service => {
+        const initialCount = Number(document.getElementById(`${service.prefix}_count`).value);
+        document.getElementById(`${service.prefix}_any`).disabled = initialCount === 0;
+        document.getElementById(`${service.prefix}_calendar_wrap`).style.display = initialCount === 0 ? "none" : "block";
+        document.getElementById(`${service.prefix}_count`).onchange = () => {
+            const maxChoices = Number(document.getElementById(`${service.prefix}_count`).value);
+            _dwChoices[service.key] = _dwChoices[service.key].slice(0, maxChoices);
+            if (maxChoices === 0) {
+                document.getElementById(`${service.prefix}_any`).checked = false;
+                document.getElementById(`${service.prefix}_any`).disabled = true;
+                document.getElementById(`${service.prefix}_calendar_wrap`).style.display = "none";
+            } else {
+                document.getElementById(`${service.prefix}_any`).disabled = false;
+                document.getElementById(`${service.prefix}_calendar_wrap`).style.display =
+                    document.getElementById(`${service.prefix}_any`).checked ? "none" : "block";
+            }
+            _renderDutyCalendar(service);
+        };
+        document.getElementById(`${service.prefix}_any`).onchange = event => {
+            if (event.target.checked) _dwChoices[service.key] = [];
+            document.getElementById(`${service.prefix}_calendar_wrap`).style.display =
+                event.target.checked || Number(document.getElementById(`${service.prefix}_count`).value) === 0 ? "none" : "block";
+            _renderDutyCalendar(service);
+        };
+        document.getElementById(`${service.prefix}_pay`).onclick = () => {
+            _dwPaySelected[service.key] = !_dwPaySelected[service.key];
+            const isPaying = _dwPaySelected[service.key];
+            const count = document.getElementById(`${service.prefix}_count`);
+            const dateIsFlexible = document.getElementById(`${service.prefix}_any`);
+            count.disabled = isPaying;
+            document.getElementById(`${service.prefix}_pay`).setAttribute("aria-pressed", String(isPaying));
+            if (isPaying) {
+                dateIsFlexible.checked = false;
+                _dwChoices[service.key] = [];
+            }
+            dateIsFlexible.disabled = isPaying || Number(count.value) === 0;
+            document.getElementById(`${service.prefix}_calendar_wrap`).style.display =
+                isPaying || Number(count.value) === 0 || dateIsFlexible.checked ? "none" : "block";
+            _renderDutyCalendar(service);
+        };
+        _renderDutyCalendar(service);
+    });
+
+    _loadDutyAvailability(services, user);
+    document.getElementById("_dw_submit").onclick = () => _submitDutyWishes(user, services);
+}
+
+async function _loadDutyAvailability(services, user) {
+    let hasError = false;
+    for (const service of services) {
+        const { data, error } = await window._c.from("Dienstwünsche")
+            .select("user_id,datum,dienstart,datum_egal,anzahl")
+            .eq("dienstart", service.label)
+            .neq("user_id", user.id);
+        _dwBookedDates[service.key] = {};
+        _dwFlexibleRequests[service.key] = 0;
+        _dwAvailabilityErrors[service.key] = error ? error.message : null;
+        if (error) {
+            console.error(`Dienstwünsche für ${service.label} konnten nicht geladen werden:`, error);
+            hasError = true;
+            continue;
+        }
+        (data || []).forEach(row => {
+            if (row.datum_egal) {
+                _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
+            }
+            (row.datum || "").split(",").map(date => date.trim()).filter(date => /^2027-\d{2}-\d{2}$/.test(date))
+                .forEach(date => {
+                    _dwBookedDates[service.key][date] = (_dwBookedDates[service.key][date] || 0) + 1;
+                });
+        });
+    }
+    services.forEach(_renderDutyCalendar);
+    if (hasError) {
+        _toast("Belegte Diensttermine konnten nicht geladen werden. Bitte Berechtigungen und Supabase-Spalten prüfen.", "error");
+    }
+    return !hasError;
+}
+
+function _renderDutyCalendar(service) {
+    const prefix = service.prefix;
+    const calendar = document.getElementById(`${prefix}_calendar`);
+    const offset = _dwMonthOffsets[service.key];
+    const monthDate = new Date(2027, offset, 1);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const firstWeekday = (monthDate.getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const selected = _dwChoices[service.key];
+    const maxChoices = Number(document.getElementById(`${prefix}_count`).value);
+    const weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    let cells = weekdays.map(day => `<span style="font-size:0.72em;color:#666;font-weight:bold;text-align:center;padding:4px 0;">${day}</span>`).join("");
+
+    for (let blank = 0; blank < firstWeekday; blank++) cells += `<span></span>`;
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const isoDate = _dateToLocalIso(date);
+        if (date.getDay() === 5) {
+            const sunday = new Date(date);
+            sunday.setDate(sunday.getDate() + 2);
+            if (sunday.getFullYear() !== 2027) {
+                cells += `<span title="Der Sonntag dieses Dienstwochenendes liegt außerhalb von 2027." style="min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;color:#aaa;font-size:0.85em;">${day}<small style="font-size:0.62em;">Fr/So*</small></span>`;
+                continue;
+            }
+            const selectedWeekend = selected.includes(isoDate);
+            const bookedCount = _dwBookedDates[service.key][isoDate] || 0;
+            const unavailable = Boolean(_dwAvailabilityErrors[service.key]) || bookedCount > 0;
+            const disabled = unavailable || (!selectedWeekend && selected.length >= maxChoices) || maxChoices === 0;
+            cells += `<button type="button" data-weekend="${isoDate}" ${disabled ? "disabled" : ""}
+                title="${bookedCount ? `${bookedCount} anderer Dienstwunsch${bookedCount === 1 ? "" : "e"} für diesen Freitag` : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`}"
+                style="min-height:38px;border:1px solid ${bookedCount ? "#c0392b" : (selectedWeekend ? "var(--primary)" : "var(--border)")};border-radius:6px;background:${bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : "#fff")};color:${bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)")};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
+                ${day}<small style="display:block;font-size:0.62em;">${bookedCount ? `${bookedCount} belegt` : "Fr/So"}</small></button>`;
+        } else if (date.getDay() === 0) {
+            const saturday = new Date(date);
+            saturday.setDate(saturday.getDate() - 2);
+            const fridayIso = _dateToLocalIso(saturday);
+            const isSelectedWeekend = selected.includes(fridayIso);
+            const bookedCount = _dwBookedDates[service.key][fridayIso] || 0;
+            cells += `<span style="min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;border-radius:6px;background:${bookedCount ? "#fbe9e7" : (isSelectedWeekend ? "#e5f1e9" : "transparent")};color:${bookedCount ? "#c0392b" : "#777"};font-size:0.85em;">${day}<small style="font-size:0.62em;">So</small></span>`;
+        } else {
+            cells += `<span style="min-height:38px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:0.85em;">${day}</span>`;
+        }
+    }
+
+    const monthLabel = monthDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+    const selectedText = selected.length ? selected.map(iso => {
+        const friday = new Date(`${iso}T00:00:00`);
+        const sunday = new Date(friday);
+        sunday.setDate(sunday.getDate() + 2);
+        return `${friday.toLocaleDateString("de-DE")} / ${sunday.toLocaleDateString("de-DE")}`;
+    }).join(", ") : "Noch kein Wochenende ausgewählt.";
+    const bookedText = Object.keys(_dwBookedDates[service.key]).sort().map(date => {
+        const friday = new Date(`${date}T00:00:00`);
+        const sunday = new Date(friday);
+        sunday.setDate(sunday.getDate() + 2);
+        return `${friday.toLocaleDateString("de-DE")} / ${sunday.toLocaleDateString("de-DE")} (${_dwBookedDates[service.key][date]})`;
+    });
+    calendar.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <button type="button" data-month-change="-1" ${offset === 0 ? "disabled" : ""} aria-label="Vorheriger Monat" style="border:1px solid var(--border);border-radius:6px;background:#fff;padding:6px 12px;cursor:pointer;">‹</button>
+            <strong style="text-transform:capitalize;">${monthLabel}</strong>
+            <button type="button" data-month-change="1" ${offset === 11 ? "disabled" : ""} aria-label="Nächster Monat" style="border:1px solid var(--border);border-radius:6px;background:#fff;padding:6px 12px;cursor:pointer;">›</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;">${cells}</div>
+        <small style="display:block;text-align:left;color:#666;margin-top:8px;">Gewählt (${selected.length}/${maxChoices}): ${selectedText}</small>
+        <small style="display:block;text-align:left;color:#666;margin-top:6px;">Bereits von anderen gewünscht: ${bookedText.length ? bookedText.join(", ") : "Keine datumsgebundenen Wünsche."}${_dwFlexibleRequests[service.key] ? ` Zusätzlich ${_dwFlexibleRequests[service.key]} Wunsch(e) ohne festes Datum.` : ""}</small>
+        ${_dwAvailabilityErrors[service.key] ? `<small style="display:block;color:var(--danger);text-align:left;margin-top:6px;">Belegungen nicht verfügbar – Auswahl derzeit gesperrt.</small>` : ""}
+    `;
+    calendar.querySelectorAll("[data-month-change]").forEach(button => {
+        button.onclick = () => {
+            _dwMonthOffsets[service.key] += Number(button.dataset.monthChange);
+            _renderDutyCalendar(service);
+        };
+    });
+    calendar.querySelectorAll("[data-weekend]").forEach(button => {
+        button.onclick = () => {
+            const isoDate = button.dataset.weekend;
+            const current = _dwChoices[service.key];
+            if (_dwBookedDates[service.key][isoDate]) return;
+            _dwChoices[service.key] = current.includes(isoDate)
+                ? current.filter(date => date !== isoDate)
+                : [...current, isoDate].sort();
+            _renderDutyCalendar(service);
+        };
+    });
+}
+
+async function _submitDutyWishes(user, services) {
+    const button = document.getElementById("_dw_submit");
+    if (!await _loadDutyAvailability(services, user)) return;
+    const rows = [];
+    for (const service of services) {
+        const prefix = service.prefix;
+        const isPaying = _dwPaySelected[service.key];
+        const count = isPaying ? 0 : Number(document.getElementById(`${prefix}_count`).value);
+        const dateIsFlexible = count > 0 && document.getElementById(`${prefix}_any`).checked;
+        const dates = _dwChoices[service.key];
+        if (count > 0 && !dateIsFlexible && dates.length !== count) {
+            _toast(`Bitte wähle für ${service.label} genau ${count} Wochenende(n) aus oder markiere „Datum ist egal“.`, "error");
+            return;
+        }
+        if (dates.some(date => _dwBookedDates[service.key][date])) {
+            _toast(`Für ${service.label} wurde inzwischen bereits ein gewünschtes Wochenende eingetragen. Bitte wähle einen anderen Freitag.`, "error");
+            return;
+        }
+        const note = document.getElementById(`${prefix}_note`).value.trim();
+        const comment = [isPaying ? "Kein Dienst, ich bezahle" : "", note].filter(Boolean).join(" – ");
+        rows.push({
+            user_id: user.id,
+            email: user.email,
+            dienstart: service.label,
+            datum: dateIsFlexible || count === 0 ? "" : dates.join(", "),
+            datum_egal: dateIsFlexible,
+            anzahl: count,
+            kommentar: comment
+        });
+    }
+
+    button.disabled = true;
+    button.textContent = "Wird abgeschickt...";
+    const { error } = await window._c.from("Dienstwünsche").insert(rows);
+    button.disabled = false;
+    button.textContent = "Dienstwünsche abschicken";
+    if (error) {
+        console.error("Dienstwünsche konnten nicht gespeichert werden:", error);
+        _toast(`Fehler beim Abschicken der Dienstwünsche: ${error.message}`, "error");
+        return;
+    }
+
+    services.forEach(service => {
+        _dwChoices[service.key] = [];
+        document.getElementById(`${service.prefix}_count`).value = "1";
+        _dwPaySelected[service.key] = false;
+        document.getElementById(`${service.prefix}_count`).disabled = false;
+        document.getElementById(`${service.prefix}_any`).disabled = false;
+        document.getElementById(`${service.prefix}_pay`).setAttribute("aria-pressed", "false");
+        document.getElementById(`${service.prefix}_any`).checked = false;
+        document.getElementById(`${service.prefix}_calendar_wrap`).style.display = "block";
+        document.getElementById(`${service.prefix}_note`).value = "";
+        _renderDutyCalendar(service);
+    });
+    const success = document.getElementById("_dw_success");
+    success.style.display = "block";
+    setTimeout(() => { success.style.display = "none"; }, 5000);
+    _toast("Dienstwünsche erfolgreich abgeschickt!", "success");
+}
 
 // === TIMER LOGIK FÜR 3 MINUTEN (ROBUST AUCH BEI TAB-WECHSEL) ===
 let inactivityTimerInterval;
