@@ -5,10 +5,12 @@ window._initApp = async function(u) {
     _injectPremiumStyles();
     
     document.getElementById("_la").style.display = "none";
-    document.getElementById("_start").style.display = "block";
+    document.getElementById("_start").style.display = _DIENSTWUENSCHE_AKTIV ? "none" : "block";
     document.getElementById("_a").style.display = "none";
-    document.getElementById("_dw").style.display = "none";
+    document.getElementById("_dw").style.display = _DIENSTWUENSCHE_AKTIV ? "block" : "none";
     document.getElementById("_ndw").style.display = _DIENSTWUENSCHE_AKTIV ? "" : "none";
+    document.getElementById("_n_start").classList.toggle("_ax", !_DIENSTWUENSCHE_AKTIV);
+    document.getElementById("_ndw").classList.toggle("_ax", _DIENSTWUENSCHE_AKTIV);
     
     document.querySelectorAll("._cur_user").forEach(el => el.textContent = u.email);
     
@@ -192,17 +194,16 @@ function _initDutyWishes(user) {
         _renderDutyCalendar(service);
     });
 
-    _loadDutyAvailability(services, user);
+    _loadDutyAvailability(services);
     document.getElementById("_dw_submit").onclick = () => _submitDutyWishes(user, services);
 }
 
-async function _loadDutyAvailability(services, user) {
+async function _loadDutyAvailability(services) {
     let hasError = false;
     for (const service of services) {
         const { data, error } = await window._c.from("Dienstwünsche")
             .select("user_id,datum,dienstart,datum_egal,anzahl")
-            .eq("dienstart", service.label)
-            .neq("user_id", user.id);
+            .eq("dienstart", service.label);
         _dwBookedDates[service.key] = {};
         _dwFlexibleRequests[service.key] = 0;
         _dwAvailabilityErrors[service.key] = error ? error.message : null;
@@ -223,7 +224,9 @@ async function _loadDutyAvailability(services, user) {
     }
     services.forEach(_renderDutyCalendar);
     if (hasError) {
-        _toast("Belegte Diensttermine konnten nicht geladen werden. Bitte Berechtigungen und Supabase-Spalten prüfen.", "error");
+        const detail = services.map(service => _dwAvailabilityErrors[service.key])
+            .filter(Boolean).join("; ");
+        _toast(`Belegte Diensttermine konnten nicht geladen werden. Prüfe RLS/SELECT-Berechtigungen und Data-API-Freigabe. ${detail}`, "error");
     }
     return !hasError;
 }
@@ -256,9 +259,9 @@ function _renderDutyCalendar(service) {
             const selectedWeekend = selected.includes(isoDate);
             const bookedCount = _dwBookedDates[service.key][isoDate] || 0;
             const unavailable = Boolean(_dwAvailabilityErrors[service.key]) || bookedCount > 0;
-            const disabled = unavailable || (!selectedWeekend && selected.length >= maxChoices) || maxChoices === 0;
+            const disabled = (unavailable && !selectedWeekend) || maxChoices === 0;
             cells += `<button type="button" data-weekend="${isoDate}" ${disabled ? "disabled" : ""}
-                title="${bookedCount ? `${bookedCount} anderer Dienstwunsch${bookedCount === 1 ? "" : "e"} für diesen Freitag` : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`}"
+                title="${bookedCount ? `${bookedCount} Dienstwunsch${bookedCount === 1 ? "" : "wünsche"} bereits für diesen Freitag eingetragen` : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`}"
                 style="min-height:38px;border:1px solid ${bookedCount ? "#c0392b" : (selectedWeekend ? "var(--primary)" : "var(--border)")};border-radius:6px;background:${bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : "#fff")};color:${bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)")};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
                 ${day}<small style="display:block;font-size:0.62em;">${bookedCount ? `${bookedCount} belegt` : "Fr/So"}</small></button>`;
         } else if (date.getDay() === 0) {
@@ -294,7 +297,7 @@ function _renderDutyCalendar(service) {
         </div>
         <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;">${cells}</div>
         <small style="display:block;text-align:left;color:#666;margin-top:8px;">Gewählt (${selected.length}/${maxChoices}): ${selectedText}</small>
-        <small style="display:block;text-align:left;color:#666;margin-top:6px;">Bereits von anderen gewünscht: ${bookedText.length ? bookedText.join(", ") : "Keine datumsgebundenen Wünsche."}${_dwFlexibleRequests[service.key] ? ` Zusätzlich ${_dwFlexibleRequests[service.key]} Wunsch(e) ohne festes Datum.` : ""}</small>
+        <small style="display:block;text-align:left;color:#666;margin-top:6px;">Bereits eingetragene Wünsche: ${bookedText.length ? bookedText.join(", ") : "Keine datumsgebundenen Wünsche."}${_dwFlexibleRequests[service.key] ? ` Zusätzlich ${_dwFlexibleRequests[service.key]} Wunsch(e) ohne festes Datum.` : ""}</small>
         ${_dwAvailabilityErrors[service.key] ? `<small style="display:block;color:var(--danger);text-align:left;margin-top:6px;">Belegungen nicht verfügbar – Auswahl derzeit gesperrt.</small>` : ""}
     `;
     calendar.querySelectorAll("[data-month-change]").forEach(button => {
@@ -307,10 +310,15 @@ function _renderDutyCalendar(service) {
         button.onclick = () => {
             const isoDate = button.dataset.weekend;
             const current = _dwChoices[service.key];
-            if (_dwBookedDates[service.key][isoDate]) return;
-            _dwChoices[service.key] = current.includes(isoDate)
-                ? current.filter(date => date !== isoDate)
-                : [...current, isoDate].sort();
+            if (current.includes(isoDate)) {
+                _dwChoices[service.key] = current.filter(date => date !== isoDate);
+            } else if (_dwBookedDates[service.key][isoDate]) {
+                return;
+            } else if (current.length >= Number(document.getElementById(`${service.prefix}_count`).value)) {
+                _dwChoices[service.key] = [...current.slice(0, -1), isoDate].sort();
+            } else {
+                _dwChoices[service.key] = [...current, isoDate].sort();
+            }
             _renderDutyCalendar(service);
         };
     });
@@ -318,7 +326,7 @@ function _renderDutyCalendar(service) {
 
 async function _submitDutyWishes(user, services) {
     const button = document.getElementById("_dw_submit");
-    if (!await _loadDutyAvailability(services, user)) return;
+    if (!await _loadDutyAvailability(services)) return;
     const rows = [];
     for (const service of services) {
         const prefix = service.prefix;
