@@ -194,11 +194,11 @@ function _initDutyWishes(user) {
         _renderDutyCalendar(service);
     });
 
-    _loadDutyAvailability(services);
+    _loadDutyAvailability(services, user.id);
     document.getElementById("_dw_submit").onclick = () => _submitDutyWishes(user, services);
 }
 
-async function _loadDutyAvailability(services) {
+async function _loadDutyAvailability(services, currentUserId) {
     let hasError = false;
     for (const service of services) {
         const { data, error } = await window._c.from("Dienstwünsche")
@@ -213,6 +213,7 @@ async function _loadDutyAvailability(services) {
             continue;
         }
         (data || []).forEach(row => {
+            if (row.user_id === currentUserId) return;
             if (row.datum_egal) {
                 _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
             }
@@ -314,6 +315,9 @@ function _renderDutyCalendar(service) {
                 _dwChoices[service.key] = current.filter(date => date !== isoDate);
             } else if (_dwBookedDates[service.key][isoDate]) {
                 return;
+            } else if (_dwChoices[service.key === "standaufsicht" ? "wirtschaftsdienst" : "standaufsicht"].includes(isoDate)) {
+                _toast("Dieses Wochenende ist bereits für die andere Dienstart ausgewählt.", "error");
+                return;
             } else if (current.length >= Number(document.getElementById(`${service.prefix}_count`).value)) {
                 _dwChoices[service.key] = [...current.slice(0, -1), isoDate].sort();
             } else {
@@ -326,7 +330,7 @@ function _renderDutyCalendar(service) {
 
 async function _submitDutyWishes(user, services) {
     const button = document.getElementById("_dw_submit");
-    if (!await _loadDutyAvailability(services)) return;
+    if (!await _loadDutyAvailability(services, user.id)) return;
     const rows = [];
     for (const service of services) {
         const prefix = service.prefix;
@@ -355,16 +359,49 @@ async function _submitDutyWishes(user, services) {
         });
     }
 
+    const standaufsichtDates = new Set(_dwChoices.standaufsicht);
+    if (_dwChoices.wirtschaftsdienst.some(date => standaufsichtDates.has(date))) {
+        _toast("Dasselbe Wochenende kann nicht für Standaufsicht und Wirtschaftsdienst ausgewählt werden.", "error");
+        return;
+    }
+
+    const { data: existingWishes, error: existingError } = await window._c.from("Dienstwünsche")
+        .select("id,dienstart")
+        .eq("user_id", user.id);
+    if (existingError) {
+        console.error("Vorhandene Dienstwünsche konnten nicht geprüft werden:", existingError);
+        _toast(`Vorhandene Dienstwünsche konnten nicht geprüft werden: ${existingError.message}`, "error");
+        return;
+    }
+    if (existingWishes && existingWishes.length > 0) {
+        const replace = confirm(`Für dich sind bereits ${existingWishes.length} Dienstwunsch-Einträge vorhanden. Sollen diese durch die neuen Wünsche ersetzt werden?`);
+        if (!replace) return;
+    }
+
     button.disabled = true;
     button.textContent = "Wird abgeschickt...";
     const { error } = await window._c.from("Dienstwünsche").insert(rows);
-    button.disabled = false;
-    button.textContent = "Dienstwünsche abschicken";
     if (error) {
+        button.disabled = false;
+        button.textContent = "Dienstwünsche abschicken";
         console.error("Dienstwünsche konnten nicht gespeichert werden:", error);
         _toast(`Fehler beim Abschicken der Dienstwünsche: ${error.message}`, "error");
         return;
     }
+    if (existingWishes && existingWishes.length > 0) {
+        const { error: deleteError } = await window._c.from("Dienstwünsche")
+            .delete()
+            .in("id", existingWishes.map(wish => wish.id));
+        if (deleteError) {
+            button.disabled = false;
+            button.textContent = "Dienstwünsche abschicken";
+            console.error("Neue Dienstwünsche wurden gespeichert, alte Einträge konnten aber nicht entfernt werden:", deleteError);
+            _toast(`Neue Wünsche sind gespeichert, aber alte Einträge konnten nicht ersetzt werden: ${deleteError.message}`, "error");
+            return;
+        }
+    }
+    button.disabled = false;
+    button.textContent = "Dienstwünsche abschicken";
 
     services.forEach(service => {
         _dwChoices[service.key] = [];
