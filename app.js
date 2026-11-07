@@ -4,6 +4,7 @@ const _DIENSTWUENSCHE_AKTIV = true;
 window._initApp = async function(u) {
     _injectPremiumStyles();
     
+    document.getElementById("_login_layout").style.display = "none";
     document.getElementById("_la").style.display = "none";
     document.getElementById("_start").style.display = _DIENSTWUENSCHE_AKTIV ? "none" : "block";
     document.getElementById("_a").style.display = "none";

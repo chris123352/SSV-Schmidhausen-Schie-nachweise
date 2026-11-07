@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://zgpjnjttafrpjcswpaff.supabase.co; img-src 'self' data:; style-src 'self' 'unsafe-inline';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://zgpjnjttafrpjcswpaff.supabase.co; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-src https://calendar.google.com;">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Schießnachweis - SSV Schmidhausen</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -144,6 +144,33 @@
     ._nb button._ax { background: var(--primary-dark) !important; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
     ._dw_pay { width: 100%; padding: 9px 12px; border: 1px solid var(--danger); border-radius: 6px; background: white; color: var(--danger); font-weight: bold; cursor: pointer; }
     ._dw_pay[aria-pressed="true"] { background: var(--danger); color: white; }
+
+    ._login_layout {
+        display: grid;
+        width: min(94vw, 850px);
+        grid-template-columns: minmax(0, 450px) minmax(280px, 1fr);
+        gap: 22px;
+        align-items: start;
+        margin: 30px 10px;
+    }
+    ._login_main { width: 100%; max-width: none; margin: 0; }
+    ._calendar_card {
+        position: sticky;
+        top: 20px;
+        min-width: 0;
+        overflow: hidden;
+        background: var(--white);
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+        text-align: left;
+    }
+    ._calendar_head { padding: 18px 18px 12px; }
+    ._calendar_head h3 { margin: 0 0 4px; color: var(--primary); font-size: 1.05em; text-transform: uppercase; }
+    ._calendar_head p { margin: 0; color: #666; font-size: 0.82em; }
+    ._calendar_frame { display: block; width: 100%; height: 420px; border: 0; background: #fff; }
+    ._calendar_links { display: grid; gap: 8px; padding: 12px 18px 18px; }
+    ._calendar_links a { color: var(--primary); font-size: 0.85em; font-weight: 600; text-decoration: none; }
+    ._calendar_links a:hover { color: var(--primary-dark); text-decoration: underline; }
     
     label { display: block; text-align: left; font-weight: 600; font-size: 0.85em; margin-top: 12px; color: #555; }
     input, select { width: 100%; padding: 10px 12px; background: var(--white); border: 1px solid var(--border); border-radius: 6px; font-family: inherit; margin: 6px 0 12px 0; box-sizing: border-box; font-size: 0.95em; }
@@ -169,6 +196,11 @@
 
     ._pw_trigger { font-size: 0.75em; color: var(--primary); font-weight: bold; cursor: pointer; }
     ._pw_trigger:hover { text-decoration: underline; color: var(--primary-dark); }
+    @media (max-width: 849px) {
+        ._login_layout { width: 100%; grid-template-columns: minmax(0, 1fr); margin: 0; }
+        ._login_main { width: 90%; max-width: 450px; margin: 30px 10px; }
+        ._calendar_card { display: none; }
+    }
 </style>
 </head>
 <body>
@@ -176,7 +208,25 @@
 <img src="WhatsApp-Image-2019-10-02-at-16.27.34-1024x1024.jpeg" alt="SSV Logo">
 <div><h2>SSV Schmidhausen</h2><span>Digitaler Schießnachweis</span></div>
 </header>
-<div class="_c" id="_la"><h3>Mitglied Login</h3><input id="_e" type="email" placeholder="E-Mail Adresse"><input id="_p" type="password" placeholder="Passwort"><button id="_lb" class="_mb">Anmelden</button><p style="text-align:center;margin-top:15px"><a href="#" id="_fp">Passwort vergessen?</a></p></div>
+<div class="_login_layout" id="_login_layout">
+    <div class="_c _login_main" id="_la"><h3>Mitglied Login</h3><input id="_e" type="email" placeholder="E-Mail Adresse"><input id="_p" type="password" placeholder="Passwort"><button id="_lb" class="_mb">Anmelden</button><p style="text-align:center;margin-top:15px"><a href="#" id="_fp">Passwort vergessen?</a></p></div>
+    <aside class="_calendar_card" aria-label="SSV-Termine">
+        <div class="_calendar_head">
+            <h3>SSV-Termine</h3>
+            <p>Die nächsten Termine im Vereinskalender</p>
+        </div>
+        <iframe class="_calendar_frame"
+            src="https://calendar.google.com/calendar/embed?src=hace72tt0qruarkp69v3ja9568%40group.calendar.google.com&amp;ctz=Europe%2FBerlin&amp;mode=AGENDA&amp;showTitle=0&amp;showNav=0&amp;showDate=0&amp;showPrint=0&amp;showTabs=0&amp;showCalendars=0&amp;showTz=0"
+            title="SSV-Termine im Google Kalender"
+            loading="lazy"
+            referrerpolicy="no-referrer">
+        </iframe>
+        <div class="_calendar_links">
+            <a href="https://calendar.google.com/calendar/u/0?cid=aGFjZTcydHQwcXJ1YXJrcDY5djNqYTk1NjhAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ" target="_blank" rel="noopener noreferrer">Google Kalender öffnen ↗</a>
+            <a href="https://ssv-schmidhausen.de/termine/" target="_blank" rel="noopener noreferrer">Alle Termine auf der Vereinsseite ↗</a>
+        </div>
+    </aside>
+</div>
 
 <div class="_nb" id="_an">
     <button id="_n_start" class="_ax">Startseite</button>
