@@ -850,26 +850,63 @@ async function _refreshOpenRequests() {
             i.id = `card_${x.id}`;
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
             const isDeletionRequest = x.status === 'loeschung_beantragt';
-            i.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <span style="color: var(--primary); font-weight: bold; font-size: 0.95em;">${formattedDate}</span>
-                    ${isDeletionRequest
-                        ? `<span style="color: #c0392b; font-weight: bold; font-size: 0.75em; white-space: nowrap;">Löschung beantragt</span>`
-                        : (!isRegular ? `<span style="color: #e67e22; font-weight: bold; font-size: 0.75em; white-space: nowrap;">⚠️ Ausnahme</span>` : '')}
-                </div>
-                <div class="_card_details" style="background: ${isRegular ? '#f0f0f0' : '#faeedf'}; padding: 12px; border-radius: 6px;">
-                    <strong style="color: var(--text); word-break: break-all; font-size: 0.95em; display: block; margin-bottom: 8px; border-bottom: 1px solid ${isRegular ? '#e0e0e0' : '#eedcc5'}; padding-bottom: 6px;">${r ? r.email : 'Unbekannt'}</strong>
-                    ${x.gastschuetze ? `<strong>Gast:</strong> ${x.gastschuetze}<br>` : ''}
-                    <strong>Kategorie:</strong> ${x.typ || 'Training'}<br>
-                    <strong>Stand:</strong> ${x.schiessstand} | <strong>Disziplin:</strong> ${x.disziplin}<br>
-                    <strong>Waffe:</strong> ${x.waffe}<br>
-                    <strong>Aufsicht:</strong> ${x.aufsicht}
-                    ${x.bemerkung ? `<br><strong style="color: #c0392b;">Bemerkung:</strong> <span style="font-style: italic; color: #333;">${x.bemerkung}</span>` : ''}
-                </div>
-                ${isDeletionRequest
-                    ? `<button onclick="window._showDeleteModal('${x.id}', 'approve_entry_deletion', 'den Eintrag vom ${formattedDate}')" class="_ba" style="background:var(--danger)!important;">Löschung bestätigen</button>`
-                    : `<button onclick="window._approveEntry('${x.id}', this)" class="_ba">✓ Jetzt Freigeben</button>`}
-            `;
+            const header = document.createElement("div");
+            header.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;";
+            const dateLabel = document.createElement("span");
+            dateLabel.style.cssText = "color:var(--primary);font-weight:bold;font-size:0.95em;";
+            dateLabel.textContent = formattedDate;
+            header.appendChild(dateLabel);
+            if (isDeletionRequest || !isRegular) {
+                const statusLabel = document.createElement("span");
+                statusLabel.style.cssText = `color:${isDeletionRequest ? "#c0392b" : "#e67e22"};font-weight:bold;font-size:0.75em;white-space:nowrap;`;
+                statusLabel.textContent = isDeletionRequest ? "Löschung beantragt" : "⚠️ Ausnahme";
+                header.appendChild(statusLabel);
+            }
+
+            const details = document.createElement("div");
+            details.className = "_card_details";
+            details.style.cssText = `background:${isRegular ? "#f0f0f0" : "#faeedf"};padding:12px;border-radius:6px;`;
+            const email = document.createElement("strong");
+            email.style.cssText = "color:var(--text);word-break:break-all;font-size:0.95em;display:block;margin-bottom:8px;border-bottom:1px solid " +
+                `${isRegular ? "#e0e0e0" : "#eedcc5"};padding-bottom:6px;`;
+            email.textContent = r ? r.email : "Unbekannt";
+            details.appendChild(email);
+
+            const appendField = (label, value, lineBreak = true) => {
+                const fieldLabel = document.createElement("strong");
+                fieldLabel.textContent = `${label}:`;
+                details.append(fieldLabel, document.createTextNode(` ${value ?? ""}`));
+                if (lineBreak) details.appendChild(document.createElement("br"));
+            };
+            if (x.gastschuetze) appendField("Gast", x.gastschuetze);
+            appendField("Kategorie", x.typ || "Training");
+            appendField("Stand", x.schiessstand, false);
+            details.appendChild(document.createTextNode(" | "));
+            appendField("Disziplin", x.disziplin);
+            appendField("Waffe", x.waffe);
+            appendField("Aufsicht", x.aufsicht, !x.bemerkung);
+            if (x.bemerkung) {
+                details.appendChild(document.createElement("br"));
+                const noteLabel = document.createElement("strong");
+                noteLabel.style.color = "#c0392b";
+                noteLabel.textContent = "Bemerkung:";
+                const note = document.createElement("span");
+                note.style.cssText = "font-style:italic;color:#333;";
+                note.textContent = ` ${x.bemerkung}`;
+                details.append(noteLabel, note);
+            }
+
+            const action = document.createElement("button");
+            action.className = "_ba";
+            if (isDeletionRequest) {
+                action.textContent = "Löschung bestätigen";
+                action.style.background = "var(--danger)";
+                action.onclick = () => window._showDeleteModal(x.id, "approve_entry_deletion", `den Eintrag vom ${formattedDate}`);
+            } else {
+                action.textContent = "✓ Jetzt Freigeben";
+                action.onclick = () => window._approveEntry(x.id, action);
+            }
+            i.append(header, details, action);
             listContainer.appendChild(i);
         });
     } else {
