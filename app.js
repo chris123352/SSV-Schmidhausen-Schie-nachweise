@@ -1,4 +1,4 @@
-// Temporarily show or hide the member-facing duty wish feature here.
+// true: Dienstwünsche aktiv und als Startseite; false: normale Startseite.
 const _DIENSTWUENSCHE_AKTIV = true;
 
 window._initApp = async function(u) {
