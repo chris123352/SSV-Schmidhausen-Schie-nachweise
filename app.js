@@ -587,19 +587,19 @@ window._showDeleteModal = function(id, type, name) {
     window._deleteData = { id, type };
     const isWeapon = type === 'waffe';
     const isRequest = type === 'request_entry_deletion';
-    const isAdminDelete = type === 'approve_entry_deletion';
+    const isDeletionRequestRejection = type === 'reject_entry_deletion';
     const isRejection = type === 'reject_entry';
-    const title = isRejection ? 'Eintrag ablehnen?' : (isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?'));
+    const title = isDeletionRequestRejection ? 'Eintrag behalten?' : (isRejection ? 'Eintrag ablehnen?' : (isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?')));
     const text = isRejection
         ? `Möchtest du ${name} ablehnen? Das Mitglied sieht anschließend die Meldung „Eintrag abgelehnt“ bei seinen Einträgen.`
+        : (isDeletionRequestRejection
+        ? `Möchtest du den Löschantrag für <strong>${name}</strong> ablehnen? Der freigegebene Eintrag bleibt dauerhaft erhalten.`
         : (isRequest
         ? `Möchtest du die Löschung von <strong>${name}</strong> bei einem Administrator beantragen?`
-        : (isAdminDelete
-            ? `Möchtest du <strong>${name}</strong> endgültig löschen?`
             : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`)));
     document.getElementById("_delete_modal_title").textContent = title;
     document.getElementById("_delete_modal_text").innerHTML = text;
-    document.getElementById("_btn_confirm_delete").textContent = isRejection ? "Ablehnen" : (isRequest ? "Beantragen" : (isAdminDelete ? "Endgültig löschen" : "Löschen"));
+    document.getElementById("_btn_confirm_delete").textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection ? "Ablehnen" : (isRequest ? "Beantragen" : "Löschen"));
     document.getElementById("_delete_modal").style.display = "flex";
 };
 
@@ -613,6 +613,7 @@ window._confirmDeleteAction = async function() {
     const { id, type } = window._deleteData;
     const btn = document.getElementById("_btn_confirm_delete");
     const isRejection = type === "reject_entry";
+    const isDeletionRequestRejection = type === "reject_entry_deletion";
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
     let error;
@@ -620,31 +621,36 @@ window._confirmDeleteAction = async function() {
         const result = await window._c.from('entries').update({ status: 'abgelehnt' })
             .eq('id', id).eq('status', 'offen').select('id');
         error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr offen."));
+    } else if (isDeletionRequestRejection) {
+        const result = await window._c.from('entries').update({ status: 'bestätigt' })
+            .eq('id', id).eq('status', 'loeschung_beantragt').select('id');
+        error = result.error || (result.data.length ? null : new Error("Der Löschantrag ist nicht mehr offen."));
     } else if (type === 'request_entry_deletion') {
         error = new Error("Freigegebene Einträge können nicht gelöscht werden.");
-    } else {
-        const table = type === 'waffe' ? 'waffenspeicher' : 'entries';
-        let query = window._c.from(table).delete().eq("id", id);
-        if (type === 'approve_entry_deletion') {
-            query = query.eq('status', 'loeschung_beantragt');
-        } else if (type === 'entry') {
-            query = query.in('status', ['offen', 'abgelehnt']);
-        }
-        const result = await query.select('id');
+    } else if (type === 'approve_entry_deletion') {
+        error = new Error("Freigegebene Einträge können nicht gelöscht werden.");
+    } else if (type === 'entry') {
+        const result = await window._c.from('entries').delete().eq("id", id)
+            .in('status', ['offen', 'abgelehnt']).select('id');
         error = result.error || (result.data.length ? null : new Error("Der Eintrag kann mit diesem Status nicht gelöscht werden."));
+    } else if (type === 'waffe') {
+        const result = await window._c.from('waffenspeicher').delete().eq("id", id).select('id');
+        error = result.error || (result.data.length ? null : new Error("Der Eintrag kann mit diesem Status nicht gelöscht werden."));
+    } else {
+        error = new Error("Ungültige Löschaktion.");
     }
     btn.disabled = false;
-    btn.textContent = isRejection ? "Ablehnen" : (type === "request_entry_deletion" ? "Beantragen" : (type === "approve_entry_deletion" ? "Endgültig löschen" : "Löschen"));
+    btn.textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection ? "Ablehnen" : (type === "request_entry_deletion" ? "Beantragen" : "Löschen"));
     window._hideDeleteModal();
     if (error) {
-        if (isRejection) {
-            console.error("Eintrag konnte nicht abgelehnt werden:", error);
-            _toast(`Eintrag konnte nicht abgelehnt werden: ${error.message}`, "error");
+        if (isRejection || isDeletionRequestRejection) {
+            console.error("Eintragsstatus konnte nicht geändert werden:", error);
+            _toast(`Eintragsstatus konnte nicht geändert werden: ${error.message}`, "error");
         } else {
-            _toast(type === 'request_entry_deletion' ? "Freigegebene Einträge können nicht gelöscht werden." : "Fehler beim Löschen.", "error");
+            _toast(type === 'request_entry_deletion' || type === 'approve_entry_deletion' ? "Freigegebene Einträge können nicht gelöscht werden." : "Fehler beim Löschen.", "error");
         }
     } else {
-        _toast(isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : "Erfolgreich gelöscht!", "success");
+        _toast(isDeletionRequestRejection ? "Löschantrag abgelehnt. Der freigegebene Eintrag bleibt erhalten." : (isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : "Erfolgreich gelöscht!"), "success");
         const { data: { user } } = await window._c.auth.getUser();
         if (type === 'waffe') {
             _loadWaffen(user);
@@ -943,9 +949,8 @@ async function _refreshOpenRequests() {
             const action = document.createElement("button");
             action.className = "_ba";
             if (isDeletionRequest) {
-                action.textContent = "Löschung bestätigen";
-                action.style.background = "var(--danger)";
-                action.onclick = () => window._showDeleteModal(x.id, "approve_entry_deletion", `den Eintrag vom ${formattedDate}`);
+                action.textContent = "Eintrag behalten";
+                action.onclick = () => window._showDeleteModal(x.id, "reject_entry_deletion", `den Eintrag vom ${formattedDate}`);
             } else {
                 action.textContent = "✓ Jetzt Freigeben";
                 action.onclick = () => window._approveEntry(x.id, action);
