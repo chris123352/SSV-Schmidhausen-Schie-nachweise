@@ -3,17 +3,23 @@ const _DIENSTWUENSCHE_AKTIV = true;
 
 window._initApp = async function(u) {
     _injectPremiumStyles();
-    
+
+    const isGuestAccount = String(u.email || "").trim().toLowerCase() === "gast@ssv.de";
+    const hasDutyWishesAccess = _DIENSTWUENSCHE_AKTIV || isGuestAccount;
+
     document.getElementById("_login_layout").style.display = "none";
     document.getElementById("_la").style.display = "none";
     document.getElementById("_start").style.display = _DIENSTWUENSCHE_AKTIV ? "none" : "block";
     document.getElementById("_a").style.display = "none";
-    document.getElementById("_dw").style.display = _DIENSTWUENSCHE_AKTIV ? "block" : "none";
-    document.getElementById("_ndw").style.display = _DIENSTWUENSCHE_AKTIV ? "" : "none";
+    document.getElementById("_dw").style.display = hasDutyWishesAccess && _DIENSTWUENSCHE_AKTIV ? "block" : "none";
+    document.getElementById("_ndw").style.display = hasDutyWishesAccess && !isGuestAccount ? "block" : "none";
     document.getElementById("_n_start").classList.toggle("_ax", !_DIENSTWUENSCHE_AKTIV);
-    document.getElementById("_ndw").classList.toggle("_ax", _DIENSTWUENSCHE_AKTIV);
+    document.getElementById("_ndw").classList.toggle("_ax", hasDutyWishesAccess && _DIENSTWUENSCHE_AKTIV);
     
     document.querySelectorAll("._cur_user").forEach(el => el.textContent = u.email);
+    const guestNameInput = document.getElementById("_g");
+    guestNameInput.required = isGuestAccount;
+    document.querySelector('label[for="_g"]').textContent = isGuestAccount ? "Name Gastschütze *" : "Name Gastschütze";
     
     document.querySelectorAll("._lo_btn").forEach(btn => {
         btn.onclick = async () => {
@@ -36,7 +42,7 @@ window._initApp = async function(u) {
     _loadUserEntries(u);
     _loadWaffen(u);
     _initAutoAufsicht();
-    if (_DIENSTWUENSCHE_AKTIV) _initDutyWishes(u);
+    if (hasDutyWishesAccess) _initDutyWishes(u);
     
     document.getElementById("_n_start").onclick = () => {
         document.getElementById("_start").style.display = "block";
@@ -61,7 +67,7 @@ window._initApp = async function(u) {
     };
 
     document.getElementById("_ndw").onclick = () => {
-        if (!_DIENSTWUENSCHE_AKTIV) return;
+        if (!hasDutyWishesAccess) return;
         document.getElementById("_start").style.display = "none";
         document.getElementById("_a").style.display = "none";
         document.getElementById("_dw").style.display = "block";
@@ -679,6 +685,7 @@ async function _saveEntry() {
     };
     
     if (!f.d.value || !f.s.value || !f.ty.value || !f.w.value || !f.au.value) return _toast("Pflichtfelder fehlen!", "error");
+    if (f.g.required && !f.g.value.trim()) return _toast("Name Gastschütze ist für dieses Konto ein Pflichtfeld!", "error");
     
     const inputDate = new Date(f.d.value);
     const dayOfWeek = inputDate.getDay(); 
