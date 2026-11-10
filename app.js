@@ -135,6 +135,7 @@ window._initApp = async function(u) {
 const _dwChoices = { standaufsicht: [], wirtschaftsdienst: [] };
 const _dwMonthOffsets = { standaufsicht: 0, wirtschaftsdienst: 0 };
 const _dwBookedDates = { standaufsicht: {}, wirtschaftsdienst: {} };
+const _dwOwnDates = { standaufsicht: {}, wirtschaftsdienst: {} };
 const _dwFlexibleRequests = { standaufsicht: 0, wirtschaftsdienst: 0 };
 const _dwAvailabilityErrors = { standaufsicht: null, wirtschaftsdienst: null };
 const _dwPaySelected = { standaufsicht: false, wirtschaftsdienst: false };
@@ -206,6 +207,7 @@ async function _loadDutyAvailability(services, currentUserId) {
             .select("user_id,datum,dienstart,datum_egal,anzahl")
             .eq("dienstart", service.label);
         _dwBookedDates[service.key] = {};
+        _dwOwnDates[service.key] = {};
         _dwFlexibleRequests[service.key] = 0;
         _dwAvailabilityErrors[service.key] = error ? error.message : null;
         if (error) {
@@ -214,13 +216,17 @@ async function _loadDutyAvailability(services, currentUserId) {
             continue;
         }
         (data || []).forEach(row => {
-            if (row.user_id === currentUserId) return;
+            const isOwnRequest = row.user_id === currentUserId;
             if (row.datum_egal) {
-                _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
+                if (!isOwnRequest) _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
             }
             (row.datum || "").split(",").map(date => date.trim()).filter(date => /^2027-\d{2}-\d{2}$/.test(date))
                 .forEach(date => {
-                    _dwBookedDates[service.key][date] = (_dwBookedDates[service.key][date] || 0) + 1;
+                    if (isOwnRequest) {
+                        _dwOwnDates[service.key][date] = true;
+                    } else {
+                        _dwBookedDates[service.key][date] = (_dwBookedDates[service.key][date] || 0) + 1;
+                    }
                 });
         });
     }
@@ -260,12 +266,13 @@ function _renderDutyCalendar(service) {
             }
             const selectedWeekend = selected.includes(isoDate);
             const bookedCount = _dwBookedDates[service.key][isoDate] || 0;
+            const ownRequest = _dwOwnDates[service.key][isoDate];
             const unavailable = Boolean(_dwAvailabilityErrors[service.key]) || bookedCount > 0;
             const disabled = (unavailable && !selectedWeekend) || maxChoices === 0;
             cells += `<button type="button" data-weekend="${isoDate}" ${disabled ? "disabled" : ""}
-                title="${bookedCount ? `${bookedCount} Dienstwunsch${bookedCount === 1 ? "" : "wünsche"} bereits für diesen Freitag eingetragen` : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`}"
-                style="min-height:38px;border:1px solid ${bookedCount ? "#c0392b" : (selectedWeekend ? "var(--primary)" : "var(--border)")};border-radius:6px;background:${bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : "#fff")};color:${bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)")};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
-                ${day}<small style="display:block;font-size:0.62em;">${bookedCount ? `${bookedCount} belegt` : "Fr/So"}</small></button>`;
+                title="${bookedCount ? `${bookedCount} Dienstwunsch${bookedCount === 1 ? "" : "wünsche"} bereits für diesen Freitag eingetragen` : (ownRequest ? "Dein bereits eingetragener Wunsch – anklicken, um ihn auszuwählen" : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`)}"
+                style="min-height:38px;border:1px solid ${bookedCount ? "#c0392b" : (selectedWeekend || ownRequest ? "var(--primary)" : "var(--border)")};border-radius:6px;background:${bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : (ownRequest ? "#e5f1e9" : "#fff"))};color:${bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)")};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
+                ${day}<small style="display:block;font-size:0.62em;">${bookedCount ? `${bookedCount} belegt` : (selectedWeekend ? "Gewählt" : (ownRequest ? "Dein Wunsch" : "Fr/So"))}</small></button>`;
         } else if (date.getDay() === 0) {
             const saturday = new Date(date);
             saturday.setDate(saturday.getDate() - 2);
