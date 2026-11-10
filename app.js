@@ -588,15 +588,18 @@ window._showDeleteModal = function(id, type, name) {
     const isWeapon = type === 'waffe';
     const isRequest = type === 'request_entry_deletion';
     const isAdminDelete = type === 'approve_entry_deletion';
-    const title = isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?');
-    const text = isRequest
+    const isRejection = type === 'reject_entry';
+    const title = isRejection ? 'Eintrag ablehnen?' : (isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?'));
+    const text = isRejection
+        ? `Möchtest du ${name} ablehnen? Das Mitglied sieht anschließend die Meldung „Eintrag abgelehnt“ bei seinen Einträgen.`
+        : (isRequest
         ? `Möchtest du die Löschung von <strong>${name}</strong> bei einem Administrator beantragen?`
         : (isAdminDelete
             ? `Möchtest du <strong>${name}</strong> endgültig löschen?`
-            : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`));
+            : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`)));
     document.getElementById("_delete_modal_title").textContent = title;
     document.getElementById("_delete_modal_text").innerHTML = text;
-    document.getElementById("_btn_confirm_delete").textContent = isRequest ? "Beantragen" : (isAdminDelete ? "Endgültig löschen" : "Löschen");
+    document.getElementById("_btn_confirm_delete").textContent = isRejection ? "Ablehnen" : (isRequest ? "Beantragen" : (isAdminDelete ? "Endgültig löschen" : "Löschen"));
     document.getElementById("_delete_modal").style.display = "flex";
 };
 
@@ -609,10 +612,15 @@ window._confirmDeleteAction = async function() {
     if (!window._deleteData.id) return;
     const { id, type } = window._deleteData;
     const btn = document.getElementById("_btn_confirm_delete");
+    const isRejection = type === "reject_entry";
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
     let error;
-    if (type === 'request_entry_deletion') {
+    if (isRejection) {
+        const result = await window._c.from('entries').update({ status: 'abgelehnt' })
+            .eq('id', id).eq('status', 'offen').select('id');
+        error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr offen."));
+    } else if (type === 'request_entry_deletion') {
         const result = await window._c.from('entries').update({ status: 'loeschung_beantragt' })
             .eq('id', id).eq('status', 'bestätigt').select('id');
         error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr freigegeben."));
@@ -628,12 +636,17 @@ window._confirmDeleteAction = async function() {
         error = result.error || (result.data.length ? null : new Error("Der Eintrag kann mit diesem Status nicht gelöscht werden."));
     }
     btn.disabled = false;
-    btn.textContent = "Löschen";
+    btn.textContent = isRejection ? "Ablehnen" : (type === "request_entry_deletion" ? "Beantragen" : (type === "approve_entry_deletion" ? "Endgültig löschen" : "Löschen"));
     window._hideDeleteModal();
     if (error) {
-        _toast(type === 'request_entry_deletion' ? "Fehler beim Beantragen der Löschung." : "Fehler beim Löschen.", "error");
+        if (isRejection) {
+            console.error("Eintrag konnte nicht abgelehnt werden:", error);
+            _toast(`Eintrag konnte nicht abgelehnt werden: ${error.message}`, "error");
+        } else {
+            _toast(type === 'request_entry_deletion' ? "Fehler beim Beantragen der Löschung." : "Fehler beim Löschen.", "error");
+        }
     } else {
-        _toast(type === 'request_entry_deletion' ? "Löschung wurde beantragt." : "Erfolgreich gelöscht!", "success");
+        _toast(isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : (type === 'request_entry_deletion' ? "Löschung wurde beantragt." : "Erfolgreich gelöscht!"), "success");
         const { data: { user } } = await window._c.auth.getUser();
         if (type === 'waffe') {
             _loadWaffen(user);
@@ -733,6 +746,8 @@ async function _saveEntry() {
     }
 }
 
+let _rejectionNoticeShown = false;
+
 async function _loadUserEntries(u) {
     if (!u) {
         const { data: { user } } = await window._c.auth.getUser();
@@ -741,6 +756,10 @@ async function _loadUserEntries(u) {
     if (u.email === "gast@ssv.de") return;
     
     const { data } = await window._c.from("entries").select("*").eq('user_id', u.id).order("datum", { ascending: false });
+    if (!_rejectionNoticeShown && data?.some(entry => entry.status === 'abgelehnt')) {
+        _toast("Eintrag abgelehnt. Details findest du unter Einträge.", "error");
+        _rejectionNoticeShown = true;
+    }
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
@@ -776,8 +795,8 @@ async function _loadUserEntries(u) {
     if (data) {
         data.forEach(e => {
             const i = document.createElement("li");
-            const c = e.status === 'bestätigt' ? '_s1' : '_s0';
-            const statusLabel = e.status === 'loeschung_beantragt' ? 'Löschung beantragt' : (e.status || 'offen');
+            const c = e.status === 'bestätigt' ? '_s1' : (e.status === 'abgelehnt' ? '_s_rejected' : '_s0');
+            const statusLabel = e.status === 'loeschung_beantragt' ? 'Löschung beantragt' : (e.status === 'abgelehnt' ? 'Eintrag abgelehnt' : (e.status || 'offen'));
             let displayDate = e.datum;
             if (e.datum && e.datum.includes('-')) {
                 const parts = e.datum.split('-');
@@ -788,6 +807,7 @@ async function _loadUserEntries(u) {
                 <div style="flex: 1; text-align: left;">
                     <strong style="font-size: 1.05em;">${displayDate}</strong> <span style="color: #666;">(${e.typ || 'Training'})</span><br>
                     <small style="color: #555; display: inline-block; margin-top: 5px;">${e.disziplin} | ${e.waffe}</small>
+                    ${e.status === 'abgelehnt' ? '<small style="display:block;color:#c0392b;font-weight:bold;margin-top:6px;">Eintrag abgelehnt.</small>' : ''}
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                     <span class="_sb_badge ${c}" style="position: relative; right: auto; top: auto; margin: 0;">${statusLabel}</span>
@@ -865,17 +885,29 @@ async function _refreshOpenRequests() {
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
             const isDeletionRequest = x.status === 'loeschung_beantragt';
             const header = document.createElement("div");
-            header.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;";
+            header.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;";
             const dateLabel = document.createElement("span");
             dateLabel.style.cssText = "color:var(--primary);font-weight:bold;font-size:0.95em;";
             dateLabel.textContent = formattedDate;
             header.appendChild(dateLabel);
+            const headerActions = document.createElement("div");
+            headerActions.style.cssText = "display:flex;align-items:center;gap:6px;";
             if (isDeletionRequest || !isRegular) {
                 const statusLabel = document.createElement("span");
                 statusLabel.style.cssText = `color:${isDeletionRequest ? "#c0392b" : "#e67e22"};font-weight:bold;font-size:0.75em;white-space:nowrap;`;
                 statusLabel.textContent = isDeletionRequest ? "Löschung beantragt" : "⚠️ Ausnahme";
-                header.appendChild(statusLabel);
+                headerActions.appendChild(statusLabel);
             }
+            if (!isDeletionRequest) {
+                const rejectButton = document.createElement("button");
+                rejectButton.type = "button";
+                rejectButton.textContent = "Ablehnen";
+                rejectButton.title = "Eintrag ablehnen";
+                rejectButton.style.cssText = "padding:4px 8px;border:1px solid #c0392b;border-radius:5px;background:#fff;color:#c0392b;font-size:0.72em;font-weight:bold;cursor:pointer;white-space:nowrap;";
+                rejectButton.onclick = () => window._showDeleteModal(x.id, "reject_entry", `den Eintrag vom ${formattedDate}`);
+                headerActions.appendChild(rejectButton);
+            }
+            header.appendChild(headerActions);
 
             const details = document.createElement("div");
             details.className = "_card_details";
