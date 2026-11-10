@@ -621,16 +621,14 @@ window._confirmDeleteAction = async function() {
             .eq('id', id).eq('status', 'offen').select('id');
         error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr offen."));
     } else if (type === 'request_entry_deletion') {
-        const result = await window._c.from('entries').update({ status: 'loeschung_beantragt' })
-            .eq('id', id).eq('status', 'bestätigt').select('id');
-        error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr freigegeben."));
+        error = new Error("Freigegebene Einträge können nicht gelöscht werden.");
     } else {
         const table = type === 'waffe' ? 'waffenspeicher' : 'entries';
         let query = window._c.from(table).delete().eq("id", id);
         if (type === 'approve_entry_deletion') {
             query = query.eq('status', 'loeschung_beantragt');
         } else if (type === 'entry') {
-            query = query.neq('status', 'bestätigt').neq('status', 'loeschung_beantragt');
+            query = query.in('status', ['offen', 'abgelehnt']);
         }
         const result = await query.select('id');
         error = result.error || (result.data.length ? null : new Error("Der Eintrag kann mit diesem Status nicht gelöscht werden."));
@@ -643,10 +641,10 @@ window._confirmDeleteAction = async function() {
             console.error("Eintrag konnte nicht abgelehnt werden:", error);
             _toast(`Eintrag konnte nicht abgelehnt werden: ${error.message}`, "error");
         } else {
-            _toast(type === 'request_entry_deletion' ? "Fehler beim Beantragen der Löschung." : "Fehler beim Löschen.", "error");
+            _toast(type === 'request_entry_deletion' ? "Freigegebene Einträge können nicht gelöscht werden." : "Fehler beim Löschen.", "error");
         }
     } else {
-        _toast(isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : (type === 'request_entry_deletion' ? "Löschung wurde beantragt." : "Erfolgreich gelöscht!"), "success");
+        _toast(isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : "Erfolgreich gelöscht!", "success");
         const { data: { user } } = await window._c.auth.getUser();
         if (type === 'waffe') {
             _loadWaffen(user);
@@ -811,9 +809,9 @@ async function _loadUserEntries(u) {
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                     <span class="_sb_badge ${c}" style="position: relative; right: auto; top: auto; margin: 0;">${statusLabel}</span>
-                    ${e.status === 'loeschung_beantragt'
+                    ${e.status === 'bestätigt' || e.status === 'loeschung_beantragt'
                         ? ''
-                        : `<button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', '${e.status === 'bestätigt' ? 'request_entry_deletion' : 'entry'}', 'den Eintrag vom ${displayDate}')" title="${e.status === 'bestätigt' ? 'Löschung beantragen' : 'Eintrag löschen'}">🗑️</button>`}
+                        : `<button class="_btn_icon_delete" onclick="window._showDeleteModal('${e.id}', 'entry', 'den Eintrag vom ${displayDate}')" title="Eintrag löschen">🗑️</button>`}
                 </div>
             `;
             if (e.datum && !e.datum.startsWith(currentYear.toString())) {
