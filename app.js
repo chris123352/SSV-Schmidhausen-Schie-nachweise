@@ -171,8 +171,21 @@ function _initStartDutyFeatures(user) {
     const submitButton = document.getElementById("_submit_duty_check");
     const closeModal = () => { modal.style.display = "none"; };
 
+    dateInput.onchange = () => {
+        if (!dateInput.value) return;
+        const weekday = new Date(`${dateInput.value}T00:00:00`).getDay();
+        if (weekday !== 0 && weekday !== 5) {
+            dateInput.value = "";
+            _toast("Dienst-Rückmeldungen sind nur für Freitag und Sonntag möglich.", "error");
+        }
+    };
     document.getElementById("_open_duty_check").onclick = () => {
-        dateInput.value = _dateToLocalIso(new Date());
+        const nextDutyDate = new Date();
+        nextDutyDate.setHours(0, 0, 0, 0);
+        while (nextDutyDate.getDay() !== 0 && nextDutyDate.getDay() !== 5) {
+            nextDutyDate.setDate(nextDutyDate.getDate() + 1);
+        }
+        dateInput.value = _dateToLocalIso(nextDutyDate);
         document.getElementById("_duty_check_type").value = "";
         commentInput.value = "";
         modal.style.display = "flex";
@@ -261,19 +274,28 @@ async function _submitDutyAttendance(user) {
         _toast("Bitte Datum und Dienstart auswählen.", "error");
         return;
     }
+    const selectedWeekday = new Date(`${date}T00:00:00`).getDay();
+    if (selectedWeekday !== 0 && selectedWeekday !== 5) {
+        document.getElementById("_duty_check_date").value = "";
+        _toast("Dienst-Rückmeldungen sind nur für Freitag und Sonntag möglich.", "error");
+        return;
+    }
 
     button.disabled = true;
     button.textContent = "Wird gespeichert …";
     const { data: existingEntries, error: checkError } = await window._c.from("Stundenauswertung")
-        .select("user_id,dienstart")
+        .select("user_id,email,dienstart")
         .eq("datum", date);
     if (checkError) {
         console.error("Vorhandene Dienst-Rückmeldungen konnten nicht geprüft werden:", checkError);
         _toast(`Dienst-Rückmeldung konnte nicht geprüft werden: ${checkError.message}`, "error");
+    } else if (existingEntries?.some(entry =>
+        entry.user_id === user.id ||
+        String(entry.email || "").trim().toLowerCase() === String(user.email || "").trim().toLowerCase()
+    )) {
+        _toast(`Du hast an diesem Datum bereits einen Dienst gemeldet. Pro Person und Tag ist nur ein Dienst möglich.`, "error");
     } else if (existingEntries?.some(entry => entry.dienstart === service)) {
         _toast(`Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`, "error");
-    } else if (existingEntries?.some(entry => entry.user_id === user.id)) {
-        _toast(`Du hast an diesem Datum bereits einen Dienst gemeldet. Pro Person und Tag ist nur ein Dienst möglich.`, "error");
     } else {
         const { error } = await window._c.from("Stundenauswertung").insert([{
             user_id: user.id,
@@ -285,7 +307,7 @@ async function _submitDutyAttendance(user) {
         if (error) {
             console.error("Dienst-Rückmeldung konnte nicht gespeichert werden:", error);
             _toast(error.code === "23505"
-                ? "Der Dienst ist bereits vergeben oder du hast an diesem Datum bereits einen Dienst gemeldet."
+                ? "Dieser Dienst ist bereits vergeben oder du hast an diesem Datum bereits einen Dienst gemeldet."
                 : `Dienst-Rückmeldung konnte nicht gespeichert werden: ${error.message}`, "error");
         } else {
             _toast("Dienst-Rückmeldung erfolgreich gespeichert.", "success");
