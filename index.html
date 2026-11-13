@@ -197,10 +197,34 @@
 
     ._pw_trigger { font-size: 0.75em; color: var(--primary); font-weight: bold; cursor: pointer; }
     ._pw_trigger:hover { text-decoration: underline; color: var(--primary-dark); }
+    ._start_grid { display: grid; gap: 18px; }
+    ._start_column { display: grid; align-content: start; gap: 18px; min-width: 0; }
+    ._start_panel { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); text-align: left; }
+    ._start_panel h4 { margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--primary); }
+    ._next_duty_item { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #edf0ed; }
+    ._next_duty_item:last-child { border-bottom: 0; }
+    ._next_duty_label { font-weight: 600; }
+    ._next_duty_date { color: var(--primary-dark); font-weight: 700; text-align: right; }
+    ._duty_check_button { width: auto; min-width: 190px; margin: 4px 0 0; }
+    ._duty_modal_overlay { display: none; position: fixed; inset: 0; z-index: 10002; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; background: rgba(0,0,0,0.5); }
+    ._duty_modal { width: 100%; max-width: 420px; padding: 24px; border-radius: 10px; background: var(--white); box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box; }
+    ._duty_modal h3 { margin-top: 0; color: var(--primary); }
+    ._duty_modal_actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+    ._duty_modal_actions button { flex: 1; padding: 10px; border: 0; border-radius: 6px; font-family: inherit; font-weight: bold; cursor: pointer; }
+    ._duty_modal_cancel { background: #eee; color: #333; }
+    ._duty_modal_submit { background: var(--primary); color: #fff; }
+    ._duty_modal_submit:disabled { opacity: 0.65; cursor: wait; }
+    @media (min-width: 850px) {
+        ._c:not(._login_main) { width: calc(100% - 48px); max-width: 1180px; margin: 24px auto; }
+        ._nb { width: calc(100% - 48px); max-width: 1180px; }
+        #_start._c { padding: 30px; }
+            ._start_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    }
     @media (max-width: 849px) {
         ._login_layout { width: 100%; grid-template-columns: minmax(0, 1fr); margin: 0; }
         ._login_main { width: 90%; max-width: 450px; margin: 30px 10px; }
         ._calendar_card { display: none; }
+        ._duty_check_button { width: 100%; }
     }
 </style>
 </head>
@@ -251,20 +275,41 @@
         </div>
     </div>
     
-    <div class="_db_box">
-        <div><h4 class="_db_title">Jahresübersicht <span id="_db_year">-</span></h4><span class="_db_info"><span id="_db_count">0</span> von <span id="_db_target">12</span> Pflichteinträgen</span></div>
-        <div id="_db_circle" class="_db_circle"><span>-</span></div>
-    </div>
-    
-    <h4 style="margin-top:30px; border-bottom:1px solid var(--border); padding-bottom:5px; text-align: left;">Eigene Waffe speichern</h4>
-    <label for="_new_w">Waffe *</label>
-    <input id="_new_w" placeholder="z.B. CZ Shadow 2">
-    <label for="_new_k">Kaliber *</label>
-    <input id="_new_k" placeholder="z.B. 9mm">
-    <button id="_save_w_btn" class="_mb">Waffe speichern</button>
+    <div class="_start_grid">
+        <div class="_start_column">
+            <section class="_start_panel">
+                <h4>Dienst-Rückmeldung</h4>
+                <p style="margin:0 0 10px;color:#666;">Bist du heute für einen Dienst da? Melde deine Anwesenheit einmalig zurück.</p>
+                <button id="_open_duty_check" type="button" class="_mb _duty_check_button">Ich habe Dienst</button>
+            </section>
 
-    <h4 style="margin-top:30px; border-bottom:1px solid var(--border); padding-bottom:5px; text-align: left;">Meine Waffen (Nutzung ab 01.01.)</h4>
-    <ul id="_waffen_list"></ul>
+            <section class="_start_panel">
+                <h4>Nächste Dienste</h4>
+                <div class="_next_duty_item"><span class="_next_duty_label">Standaufsicht</span><span id="_next_standaufsicht" class="_next_duty_date">Wird geladen …</span></div>
+                <div class="_next_duty_item"><span class="_next_duty_label">Wirtschaftsdienst</span><span id="_next_wirtschaftsdienst" class="_next_duty_date">Wird geladen …</span></div>
+            </section>
+        </div>
+
+        <div class="_start_column">
+            <section class="_start_panel">
+                <div class="_db_box" style="margin:0;">
+                    <div><h4 class="_db_title">Jahresübersicht <span id="_db_year">-</span></h4><span class="_db_info"><span id="_db_count">0</span> von <span id="_db_target">12</span> Pflichteinträgen</span></div>
+                    <div id="_db_circle" class="_db_circle"><span>-</span></div>
+                </div>
+            </section>
+
+            <section class="_start_panel">
+                <h4>Eigene Waffe speichern</h4>
+                <label for="_new_w">Waffe *</label>
+                <input id="_new_w" placeholder="z.B. CZ Shadow 2">
+                <label for="_new_k">Kaliber *</label>
+                <input id="_new_k" placeholder="z.B. 9mm">
+                <button id="_save_w_btn" class="_mb">Waffe speichern</button>
+                <h4 style="margin-top:20px;">Meine Waffen (Nutzung ab 01.01.)</h4>
+                <ul id="_waffen_list"></ul>
+            </section>
+        </div>
+    </div>
 </div>
 
 <div class="_c" id="_a" style="display:none;">
@@ -423,6 +468,26 @@
         <div style="display: flex; justify-content: space-between; gap: 15px;">
             <button id="_btn_cancel_delete" style="flex: 1; padding: 10px; border: 1px solid #ccc; background: #eee; color: #333; border-radius: 6px; cursor: pointer; font-weight: bold;">Abbrechen</button>
             <button id="_btn_confirm_delete" style="flex: 1; padding: 10px; border: none; background: #e74c3c; color: white; border-radius: 6px; cursor: pointer; font-weight: bold;">Löschen</button>
+        </div>
+    </div>
+</div>
+
+<div id="_duty_check_modal" class="_duty_modal_overlay" role="dialog" aria-modal="true" aria-labelledby="_duty_check_title">
+    <div class="_duty_modal">
+        <h3 id="_duty_check_title">Dienst-Rückmeldung</h3>
+        <label for="_duty_check_date">Datum *</label>
+        <input id="_duty_check_date" type="date" required>
+        <label for="_duty_check_type">Dienstart *</label>
+        <select id="_duty_check_type" required>
+            <option value="">-- Bitte wählen --</option>
+            <option value="Standaufsicht">Standaufsicht</option>
+            <option value="Wirtschaftsdienst">Wirtschaftsdienst</option>
+        </select>
+        <label for="_duty_check_comment">Kommentar</label>
+        <textarea id="_duty_check_comment" rows="3" placeholder="Optional" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+        <div class="_duty_modal_actions">
+            <button id="_cancel_duty_check" type="button" class="_duty_modal_cancel">Abbrechen</button>
+            <button id="_submit_duty_check" type="button" class="_duty_modal_submit">Absenden</button>
         </div>
     </div>
 </div>

@@ -41,6 +41,7 @@ window._initApp = async function(u) {
     _updateDatalists();
     _loadUserEntries(u);
     _loadWaffen(u);
+    _initStartDutyFeatures(u);
     _initAutoAufsicht();
     if (hasDutyWishesAccess) _initDutyWishes(u);
     
@@ -138,10 +139,155 @@ window._initApp = async function(u) {
     };
 };
 
+function _normalizeDutyName(name) {
+    return String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/ß/g, "ss").replace(/[^a-z0-9]/g, "");
+}
+
+function _parseDutyScheduleDate(value) {
+    const text = String(value || "").trim();
+    let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (match) {
+        const [, day, month, year] = match;
+        const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+        if (parsed.getFullYear() === Number(year) && parsed.getMonth() === Number(month) - 1 && parsed.getDate() === Number(day)) {
+            return parsed;
+        }
+        return null;
+    }
+    match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const [, year, month, day] = match;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+    return parsed.getFullYear() === Number(year) && parsed.getMonth() === Number(month) - 1 && parsed.getDate() === Number(day)
+        ? parsed
+        : null;
+}
+
+function _initStartDutyFeatures(user) {
+    const modal = document.getElementById("_duty_check_modal");
+    const dateInput = document.getElementById("_duty_check_date");
+    const commentInput = document.getElementById("_duty_check_comment");
+    const submitButton = document.getElementById("_submit_duty_check");
+    const closeModal = () => { modal.style.display = "none"; };
+
+    document.getElementById("_open_duty_check").onclick = () => {
+        dateInput.value = _dateToLocalIso(new Date());
+        document.getElementById("_duty_check_type").value = "";
+        commentInput.value = "";
+        modal.style.display = "flex";
+    };
+    document.getElementById("_cancel_duty_check").onclick = closeModal;
+    submitButton.onclick = () => _submitDutyAttendance(user);
+    _loadUpcomingDuties(user);
+}
+
+async function _loadUpcomingDuties(user) {
+    const loginName = _normalizeDutyName(String(user.email || "").split("@")[0]);
+    const today = _dateToLocalIso(new Date());
+    const schedules = [
+        {
+            table: "Standaufsichten",
+            dateColumns: [
+                { date: "Freitag", member: "aufsicht 1" },
+                { date: "Sonntag", member: "aufsicht 2" }
+            ],
+            output: document.getElementById("_next_standaufsicht")
+        },
+        {
+            table: "Wirtschaftsdienste",
+            dateColumns: [
+                { date: "Freitag", member: ["dienst1", "dienst 1"] },
+                { date: "Sonntag", member: ["dienst 2", "dienst2"] }
+            ],
+            output: document.getElementById("_next_wirtschaftsdienst")
+        }
+    ];
+    const results = await Promise.all(schedules.map(schedule =>
+        window._c.from(schedule.table).select("*")
+    ));
+    const errors = [];
+
+    schedules.forEach((schedule, index) => {
+        const { data, error } = results[index];
+        if (error) {
+            console.error(`Nächste Dienste aus ${schedule.table} konnten nicht geladen werden:`, error);
+            schedule.output.textContent = "Nicht verfügbar";
+            errors.push(`${schedule.table}: ${error.message}`);
+            return;
+        }
+        const upcoming = [];
+        (data || []).forEach(row => {
+            schedule.dateColumns.forEach(column => {
+                const assignedNames = Array.isArray(column.member) ? column.member : [column.member];
+                if (!assignedNames.some(memberColumn => _normalizeDutyName(row[memberColumn]) === loginName)) return;
+                const date = _parseDutyScheduleDate(row[column.date]);
+                if (!date) return;
+                const isoDate = _dateToLocalIso(date);
+                if (isoDate >= today) upcoming.push(date);
+            });
+        });
+        upcoming.sort((a, b) => a - b);
+        schedule.output.textContent = upcoming.length
+            ? upcoming[0].toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })
+            : "Kein nächster Dienst eingetragen";
+    });
+
+    if (errors.length) {
+        _toast(`Nächste Dienste konnten nicht vollständig geladen werden. Prüfe Tabellen-/SELECT-Berechtigungen. ${errors.join("; ")}`, "error");
+    }
+}
+
+async function _submitDutyAttendance(user) {
+    const date = document.getElementById("_duty_check_date").value;
+    const service = document.getElementById("_duty_check_type").value;
+    const comment = document.getElementById("_duty_check_comment").value.trim();
+    const button = document.getElementById("_submit_duty_check");
+    const modal = document.getElementById("_duty_check_modal");
+    if (!date || !["Standaufsicht", "Wirtschaftsdienst"].includes(service)) {
+        _toast("Bitte Datum und Dienstart auswählen.", "error");
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Wird gespeichert …";
+    const { data: existingEntries, error: checkError } = await window._c.from("Stundenauswertung")
+        .select("id")
+        .eq("datum", date)
+        .eq("dienstart", service)
+        .limit(1);
+    if (checkError) {
+        console.error("Vorhandene Dienst-Rückmeldungen konnten nicht geprüft werden:", checkError);
+        _toast(`Dienst-Rückmeldung konnte nicht geprüft werden: ${checkError.message}`, "error");
+    } else if (existingEntries && existingEntries.length > 0) {
+        _toast(`Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`, "error");
+    } else {
+        const { error } = await window._c.from("Stundenauswertung").insert([{
+            user_id: user.id,
+            datum: date,
+            email: user.email,
+            dienstart: service,
+            kommentar: comment
+        }]);
+        if (error) {
+            console.error("Dienst-Rückmeldung konnte nicht gespeichert werden:", error);
+            _toast(error.code === "23505"
+                ? `Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`
+                : `Dienst-Rückmeldung konnte nicht gespeichert werden: ${error.message}`, "error");
+        } else {
+            _toast("Dienst-Rückmeldung erfolgreich gespeichert.", "success");
+            modal.style.display = "none";
+        }
+    }
+    button.disabled = false;
+    button.textContent = "Absenden";
+}
+
 const _dwChoices = { standaufsicht: [], wirtschaftsdienst: [] };
 const _dwMonthOffsets = { standaufsicht: 0, wirtschaftsdienst: 0 };
 const _dwBookedDates = { standaufsicht: {}, wirtschaftsdienst: {} };
 const _dwOwnDates = { standaufsicht: {}, wirtschaftsdienst: {} };
+const _dwClosedDates = {};
 const _dwFlexibleRequests = { standaufsicht: 0, wirtschaftsdienst: 0 };
 const _dwAvailabilityErrors = { standaufsicht: null, wirtschaftsdienst: null };
 const _dwPaySelected = { standaufsicht: false, wirtschaftsdienst: false };
@@ -207,42 +353,62 @@ function _initDutyWishes(user) {
 }
 
 async function _loadDutyAvailability(services, currentUserId) {
-    let hasError = false;
-    for (const service of services) {
-        const { data, error } = await window._c.from("Dienstwünsche")
-            .select("user_id,datum,dienstart,datum_egal,anzahl")
-            .eq("dienstart", service.label);
+    services.forEach(service => {
         _dwBookedDates[service.key] = {};
         _dwOwnDates[service.key] = {};
         _dwFlexibleRequests[service.key] = 0;
-        _dwAvailabilityErrors[service.key] = error ? error.message : null;
-        if (error) {
-            console.error(`Dienstwünsche für ${service.label} konnten nicht geladen werden:`, error);
-            hasError = true;
-            continue;
-        }
-        (data || []).forEach(row => {
-            const isOwnRequest = row.user_id === currentUserId;
-            if (row.datum_egal) {
-                if (!isOwnRequest) _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
-            }
-            (row.datum || "").split(",").map(date => date.trim()).filter(date => /^2027-\d{2}-\d{2}$/.test(date))
-                .forEach(date => {
-                    if (isOwnRequest) {
-                        _dwOwnDates[service.key][date] = true;
-                    } else {
-                        _dwBookedDates[service.key][date] = (_dwBookedDates[service.key][date] || 0) + 1;
-                    }
-                });
+        _dwAvailabilityErrors[service.key] = null;
+    });
+    Object.keys(_dwClosedDates).forEach(date => delete _dwClosedDates[date]);
+
+    const { data, error } = await window._c.from("Dienstwünsche")
+        .select("user_id,datum,dienstart,datum_egal,anzahl,kommentar");
+    if (error) {
+        console.error("Dienstwünsche und Schließtage konnten nicht geladen werden:", error);
+        services.forEach(service => {
+            _dwAvailabilityErrors[service.key] = error.message;
         });
+        services.forEach(_renderDutyCalendar);
+        _toast(`Belegte Diensttermine konnten nicht geladen werden. Prüfe RLS/SELECT-Berechtigungen und Data-API-Freigabe. ${error.message}`, "error");
+        return false;
     }
+
+    (data || []).forEach(row => {
+        const dates = (row.datum || "").split(",").map(date => date.trim())
+            .filter(date => /^2027-\d{2}-\d{2}$/.test(date));
+        if ((row.kommentar || "").trim().toLowerCase() === "geschlossen") {
+            dates.forEach(date => {
+                const closedDate = new Date(`${date}T00:00:00`);
+                if (Number.isNaN(closedDate.getTime())) return;
+                const weekday = closedDate.getDay();
+                if (weekday === 6) closedDate.setDate(closedDate.getDate() - 1);
+                else if (weekday === 0) closedDate.setDate(closedDate.getDate() - 2);
+                else if (weekday !== 5) return;
+                _dwClosedDates[_dateToLocalIso(closedDate)] = true;
+            });
+            return;
+        }
+
+        const service = services.find(item => item.label === row.dienstart);
+        if (!service) return;
+        const isOwnRequest = row.user_id === currentUserId;
+        if (row.datum_egal && !isOwnRequest) {
+            _dwFlexibleRequests[service.key] += Number(row.anzahl) || 1;
+        }
+        dates.forEach(date => {
+            if (isOwnRequest) {
+                _dwOwnDates[service.key][date] = true;
+            } else {
+                _dwBookedDates[service.key][date] = (_dwBookedDates[service.key][date] || 0) + 1;
+            }
+        });
+    });
+
+    services.forEach(service => {
+        _dwChoices[service.key] = _dwChoices[service.key].filter(date => !_dwClosedDates[date]);
+    });
     services.forEach(_renderDutyCalendar);
-    if (hasError) {
-        const detail = services.map(service => _dwAvailabilityErrors[service.key])
-            .filter(Boolean).join("; ");
-        _toast(`Belegte Diensttermine konnten nicht geladen werden. Prüfe RLS/SELECT-Berechtigungen und Data-API-Freigabe. ${detail}`, "error");
-    }
-    return !hasError;
+    return true;
 }
 
 function _renderDutyCalendar(service) {
@@ -273,19 +439,21 @@ function _renderDutyCalendar(service) {
             const selectedWeekend = selected.includes(isoDate);
             const bookedCount = _dwBookedDates[service.key][isoDate] || 0;
             const ownRequest = _dwOwnDates[service.key][isoDate];
-            const unavailable = Boolean(_dwAvailabilityErrors[service.key]) || bookedCount > 0;
-            const disabled = (unavailable && !selectedWeekend) || maxChoices === 0;
+            const isClosed = Boolean(_dwClosedDates[isoDate]);
+            const unavailable = Boolean(_dwAvailabilityErrors[service.key]) || bookedCount > 0 || isClosed;
+            const disabled = isClosed || (unavailable && !selectedWeekend) || maxChoices === 0;
             cells += `<button type="button" data-weekend="${isoDate}" ${disabled ? "disabled" : ""}
-                title="${bookedCount ? `${bookedCount} Dienstwunsch${bookedCount === 1 ? "" : "wünsche"} bereits für diesen Freitag eingetragen` : (ownRequest ? "Dein bereits eingetragener Wunsch – anklicken, um ihn auszuwählen" : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`)}"
-                style="min-height:38px;border:1px solid ${bookedCount ? "#c0392b" : (selectedWeekend || ownRequest ? "var(--primary)" : "var(--border)")};border-radius:6px;background:${bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : (ownRequest ? "#e5f1e9" : "#fff"))};color:${bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)")};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
-                ${day}<small style="display:block;font-size:0.62em;">${bookedCount ? `${bookedCount} belegt` : (selectedWeekend ? "Gewählt" : (ownRequest ? "Dein Wunsch" : "Fr/So"))}</small></button>`;
+                title="${isClosed ? "Geschlossen – für dieses Wochenende kann kein Dienst gebucht werden" : (bookedCount ? `${bookedCount} Dienstwunsch${bookedCount === 1 ? "" : "wünsche"} bereits für diesen Freitag eingetragen` : (ownRequest ? "Dein bereits eingetragener Wunsch – anklicken, um ihn auszuwählen" : `Freitag ${date.toLocaleDateString('de-DE')} und Sonntag ${sunday.toLocaleDateString('de-DE')} auswählen`))}"
+                style="min-height:38px;border:1px solid ${isClosed ? "#777" : (bookedCount ? "#c0392b" : (selectedWeekend || ownRequest ? "var(--primary)" : "var(--border)"))};border-radius:6px;background:${isClosed ? "#e0e0e0" : (bookedCount ? "#fbe9e7" : (selectedWeekend ? "var(--primary)" : (ownRequest ? "#e5f1e9" : "#fff")))};color:${isClosed ? "#555" : (bookedCount ? "#c0392b" : (selectedWeekend ? "#fff" : "var(--text)"))};font-weight:bold;cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled && !selectedWeekend ? "0.7" : "1"};">
+                ${day}<small style="display:block;font-size:0.62em;">${isClosed ? "Geschlossen" : (bookedCount ? `${bookedCount} belegt` : (selectedWeekend ? "Gewählt" : (ownRequest ? "Dein Wunsch" : "Fr/So")))}</small></button>`;
         } else if (date.getDay() === 0) {
             const saturday = new Date(date);
             saturday.setDate(saturday.getDate() - 2);
             const fridayIso = _dateToLocalIso(saturday);
             const isSelectedWeekend = selected.includes(fridayIso);
             const bookedCount = _dwBookedDates[service.key][fridayIso] || 0;
-            cells += `<span style="min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;border-radius:6px;background:${bookedCount ? "#fbe9e7" : (isSelectedWeekend ? "#e5f1e9" : "transparent")};color:${bookedCount ? "#c0392b" : "#777"};font-size:0.85em;">${day}<small style="font-size:0.62em;">So</small></span>`;
+            const isClosed = Boolean(_dwClosedDates[fridayIso]);
+            cells += `<span title="${isClosed ? "Geschlossen – für dieses Wochenende kann kein Dienst gebucht werden" : ""}" style="min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;border-radius:6px;background:${isClosed ? "#e0e0e0" : (bookedCount ? "#fbe9e7" : (isSelectedWeekend ? "#e5f1e9" : "transparent"))};color:${isClosed ? "#555" : (bookedCount ? "#c0392b" : "#777")};font-size:0.85em;">${day}<small style="font-size:0.62em;">${isClosed ? "Geschlossen" : "So"}</small></span>`;
         } else {
             cells += `<span style="min-height:38px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:0.85em;">${day}</span>`;
         }
@@ -327,6 +495,9 @@ function _renderDutyCalendar(service) {
             const current = _dwChoices[service.key];
             if (current.includes(isoDate)) {
                 _dwChoices[service.key] = current.filter(date => date !== isoDate);
+            } else if (_dwClosedDates[isoDate]) {
+                _toast("Dieses Wochenende ist geschlossen und kann nicht gebucht werden.", "error");
+                return;
             } else if (_dwBookedDates[service.key][isoDate]) {
                 return;
             } else if (_dwChoices[service.key === "standaufsicht" ? "wirtschaftsdienst" : "standaufsicht"].includes(isoDate)) {
@@ -358,6 +529,10 @@ async function _submitDutyWishes(user, services) {
         }
         if (dates.some(date => _dwBookedDates[service.key][date])) {
             _toast(`Für ${service.label} wurde inzwischen bereits ein gewünschtes Wochenende eingetragen. Bitte wähle einen anderen Freitag.`, "error");
+            return;
+        }
+        if (dates.some(date => _dwClosedDates[date])) {
+            _toast(`Für ${service.label} ist ein geschlossenes Wochenende ausgewählt. Bitte wähle einen anderen Freitag.`, "error");
             return;
         }
         const note = document.getElementById(`${prefix}_note`).value.trim();
