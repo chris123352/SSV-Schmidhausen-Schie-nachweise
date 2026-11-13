@@ -203,35 +203,48 @@ async function _loadUpcomingDuties(user) {
             output: document.getElementById("_next_wirtschaftsdienst")
         }
     ];
-    const results = await Promise.all(schedules.map(schedule =>
-        window._c.from(schedule.table).select("*")
-    ));
     const errors = [];
 
-    schedules.forEach((schedule, index) => {
-        const { data, error } = results[index];
-        if (error) {
+    await Promise.all(schedules.map(async schedule => {
+        let timeoutId;
+        try {
+            const request = window._c.from(schedule.table).select("*");
+            const timeout = new Promise((_, reject) => {
+                timeoutId = setTimeout(() => reject(new Error("Zeitüberschreitung beim Laden.")), 15000);
+            });
+            const { data, error } = await Promise.race([request, timeout]);
+            if (error) {
+                console.error(`Nächste Dienste aus ${schedule.table} konnten nicht geladen werden:`, error);
+                schedule.output.textContent = "Nicht verfügbar";
+                errors.push(`${schedule.table}: ${error.message}`);
+                return;
+            }
+            const upcoming = [];
+            (data || []).forEach(row => {
+                schedule.dateColumns.forEach(column => {
+                    const assignedNames = Array.isArray(column.member) ? column.member : [column.member];
+                    const isAssignedToUser = assignedNames.some(memberColumn =>
+                        _normalizeDutyName(row[memberColumn]) === loginName
+                    );
+                    if (!isAssignedToUser) return;
+                    const date = _parseDutyScheduleDate(row[column.date]);
+                    if (!date) return;
+                    const isoDate = _dateToLocalIso(date);
+                    if (isoDate >= today) upcoming.push(date);
+                });
+            });
+            upcoming.sort((a, b) => a - b);
+            schedule.output.textContent = upcoming.length
+                ? upcoming[0].toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })
+                : "Kein nächster Dienst eingetragen";
+        } catch (error) {
             console.error(`Nächste Dienste aus ${schedule.table} konnten nicht geladen werden:`, error);
             schedule.output.textContent = "Nicht verfügbar";
-            errors.push(`${schedule.table}: ${error.message}`);
-            return;
+            errors.push(`${schedule.table}: ${error.message || error}`);
+        } finally {
+            clearTimeout(timeoutId);
         }
-        const upcoming = [];
-        (data || []).forEach(row => {
-            schedule.dateColumns.forEach(column => {
-                const assignedNames = Array.isArray(column.member) ? column.member : [column.member];
-                if (!assignedNames.some(memberColumn => _normalizeDutyName(row[memberColumn]) === loginName)) return;
-                const date = _parseDutyScheduleDate(row[column.date]);
-                if (!date) return;
-                const isoDate = _dateToLocalIso(date);
-                if (isoDate >= today) upcoming.push(date);
-            });
-        });
-        upcoming.sort((a, b) => a - b);
-        schedule.output.textContent = upcoming.length
-            ? upcoming[0].toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })
-            : "Kein nächster Dienst eingetragen";
-    });
+    }));
 
     if (errors.length) {
         _toast(`Nächste Dienste konnten nicht vollständig geladen werden. Prüfe Tabellen-/SELECT-Berechtigungen. ${errors.join("; ")}`, "error");
@@ -252,15 +265,15 @@ async function _submitDutyAttendance(user) {
     button.disabled = true;
     button.textContent = "Wird gespeichert …";
     const { data: existingEntries, error: checkError } = await window._c.from("Stundenauswertung")
-        .select("id")
-        .eq("datum", date)
-        .eq("dienstart", service)
-        .limit(1);
+        .select("user_id,dienstart")
+        .eq("datum", date);
     if (checkError) {
         console.error("Vorhandene Dienst-Rückmeldungen konnten nicht geprüft werden:", checkError);
         _toast(`Dienst-Rückmeldung konnte nicht geprüft werden: ${checkError.message}`, "error");
-    } else if (existingEntries && existingEntries.length > 0) {
+    } else if (existingEntries?.some(entry => entry.dienstart === service)) {
         _toast(`Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`, "error");
+    } else if (existingEntries?.some(entry => entry.user_id === user.id)) {
+        _toast(`Du hast an diesem Datum bereits einen Dienst gemeldet. Pro Person und Tag ist nur ein Dienst möglich.`, "error");
     } else {
         const { error } = await window._c.from("Stundenauswertung").insert([{
             user_id: user.id,
@@ -272,7 +285,7 @@ async function _submitDutyAttendance(user) {
         if (error) {
             console.error("Dienst-Rückmeldung konnte nicht gespeichert werden:", error);
             _toast(error.code === "23505"
-                ? `Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`
+                ? "Der Dienst ist bereits vergeben oder du hast an diesem Datum bereits einen Dienst gemeldet."
                 : `Dienst-Rückmeldung konnte nicht gespeichert werden: ${error.message}`, "error");
         } else {
             _toast("Dienst-Rückmeldung erfolgreich gespeichert.", "success");
