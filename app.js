@@ -171,8 +171,14 @@ function _initStartDutyFeatures(user) {
     const submitButton = document.getElementById("_submit_duty_check");
     const closeModal = () => { modal.style.display = "none"; };
 
+    dateInput.max = _dateToLocalIso(new Date());
     dateInput.onchange = () => {
         if (!dateInput.value) return;
+        if (dateInput.value > _dateToLocalIso(new Date())) {
+            dateInput.value = "";
+            _toast("Eine Dienst-Rückmeldung ist nur am selben Tag oder als Nachmeldung für einen vergangenen Dienst möglich.", "error");
+            return;
+        }
         const weekday = new Date(`${dateInput.value}T00:00:00`).getDay();
         if (weekday !== 0 && weekday !== 5) {
             dateInput.value = "";
@@ -180,12 +186,10 @@ function _initStartDutyFeatures(user) {
         }
     };
     document.getElementById("_open_duty_check").onclick = () => {
-        const nextDutyDate = new Date();
-        nextDutyDate.setHours(0, 0, 0, 0);
-        while (nextDutyDate.getDay() !== 0 && nextDutyDate.getDay() !== 5) {
-            nextDutyDate.setDate(nextDutyDate.getDate() + 1);
-        }
-        dateInput.value = _dateToLocalIso(nextDutyDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        dateInput.value = today.getDay() === 0 || today.getDay() === 5 ? _dateToLocalIso(today) : "";
+        dateInput.max = _dateToLocalIso(new Date());
         document.getElementById("_duty_check_type").value = "";
         commentInput.value = "";
         modal.style.display = "flex";
@@ -205,7 +209,7 @@ async function _loadUpcomingDuties(user) {
                 { date: "Freitag", member: "aufsicht 1" },
                 { date: "Sonntag", member: "aufsicht 2" }
             ],
-            output: document.getElementById("_next_standaufsicht")
+            outputs: document.querySelectorAll('[data-duty-next="standaufsicht"]')
         },
         {
             table: "Wirtschaftsdienste",
@@ -213,7 +217,7 @@ async function _loadUpcomingDuties(user) {
                 { date: "Freitag", member: ["dienst1", "dienst 1"] },
                 { date: "Sonntag", member: ["dienst 2", "dienst2"] }
             ],
-            output: document.getElementById("_next_wirtschaftsdienst")
+            outputs: document.querySelectorAll('[data-duty-next="wirtschaftsdienst"]')
         }
     ];
     const errors = [];
@@ -228,7 +232,7 @@ async function _loadUpcomingDuties(user) {
             const { data, error } = await Promise.race([request, timeout]);
             if (error) {
                 console.error(`Nächste Dienste aus ${schedule.table} konnten nicht geladen werden:`, error);
-                schedule.output.textContent = "Nicht verfügbar";
+                schedule.outputs.forEach(output => { output.textContent = "Nicht verfügbar"; });
                 errors.push(`${schedule.table}: ${error.message}`);
                 return;
             }
@@ -247,12 +251,19 @@ async function _loadUpcomingDuties(user) {
                 });
             });
             upcoming.sort((a, b) => a - b);
-            schedule.output.textContent = upcoming.length
+            const dateLabel = upcoming.length
+                ? upcoming[0].toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : "Kein Termin";
+            const dateTitle = upcoming.length
                 ? upcoming[0].toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" })
                 : "Kein nächster Dienst eingetragen";
+            schedule.outputs.forEach(output => {
+                output.textContent = dateLabel;
+                output.title = dateTitle;
+            });
         } catch (error) {
             console.error(`Nächste Dienste aus ${schedule.table} konnten nicht geladen werden:`, error);
-            schedule.output.textContent = "Nicht verfügbar";
+            schedule.outputs.forEach(output => { output.textContent = "Nicht verfügbar"; });
             errors.push(`${schedule.table}: ${error.message || error}`);
         } finally {
             clearTimeout(timeoutId);
@@ -272,6 +283,11 @@ async function _submitDutyAttendance(user) {
     const modal = document.getElementById("_duty_check_modal");
     if (!date || !["Standaufsicht", "Wirtschaftsdienst"].includes(service)) {
         _toast("Bitte Datum und Dienstart auswählen.", "error");
+        return;
+    }
+    const today = _dateToLocalIso(new Date());
+    if (date > today) {
+        _toast("Eine Dienst-Rückmeldung ist nur am selben Tag oder als Nachmeldung für einen vergangenen Dienst möglich.", "error");
         return;
     }
     const selectedWeekday = new Date(`${date}T00:00:00`).getDay();
@@ -297,12 +313,14 @@ async function _submitDutyAttendance(user) {
     } else if (existingEntries?.some(entry => entry.dienstart === service)) {
         _toast(`Für ${service} am ${new Date(`${date}T00:00:00`).toLocaleDateString("de-DE")} liegt bereits eine Rückmeldung vor.`, "error");
     } else {
+        const isPastDuty = date < today;
         const { error } = await window._c.from("Stundenauswertung").insert([{
             user_id: user.id,
             datum: date,
             email: user.email,
             dienstart: service,
-            kommentar: comment
+            kommentar: comment,
+            status: isPastDuty ? "offen" : "bestätigt"
         }]);
         if (error) {
             console.error("Dienst-Rückmeldung konnte nicht gespeichert werden:", error);
@@ -310,7 +328,9 @@ async function _submitDutyAttendance(user) {
                 ? "Dieser Dienst ist bereits vergeben oder du hast an diesem Datum bereits einen Dienst gemeldet."
                 : `Dienst-Rückmeldung konnte nicht gespeichert werden: ${error.message}`, "error");
         } else {
-            _toast("Dienst-Rückmeldung erfolgreich gespeichert.", "success");
+            _toast(isPastDuty
+                ? "Nachmeldung gespeichert und zur Admin-Freigabe eingereicht."
+                : "Dienst-Rückmeldung erfolgreich gespeichert.", "success");
             modal.style.display = "none";
         }
     }
@@ -1069,9 +1089,25 @@ async function _loadAdminPanel() {
 }
 
 async function _refreshOpenRequests() {
-    const { data: e } = await window._c.from('entries').select('*').in('status', ['offen', 'loeschung_beantragt']).order('datum', { ascending: true });
-    const { data: p } = await window._c.from('profiles').select('id,email');
-    const openCount = e ? e.length : 0;
+    const [
+        { data: entries, error: entriesError },
+        { data: dutyAttendance, error: dutyAttendanceError },
+        { data: profiles, error: profilesError }
+    ] = await Promise.all([
+        window._c.from('entries').select('*').in('status', ['offen', 'loeschung_beantragt']).order('datum', { ascending: true }),
+        window._c.from('Stundenauswertung').select('*').eq('status', 'offen').order('datum', { ascending: true }),
+        window._c.from('profiles').select('id,email')
+    ]);
+    const errors = [entriesError, dutyAttendanceError, profilesError].filter(Boolean);
+    if (errors.length) {
+        console.error("Offene Freigaben konnten nicht vollständig geladen werden:", errors);
+        _toast(`Offene Freigaben konnten nicht vollständig geladen werden: ${errors.map(error => error.message).join("; ")}`, "error");
+    }
+    const requests = [
+        ...(entries || []).map(entry => ({ ...entry, _requestTable: "entries" })),
+        ...(dutyAttendance || []).map(entry => ({ ...entry, _requestTable: "Stundenauswertung", _isDutyAttendance: true }))
+    ].sort((a, b) => String(a.datum).localeCompare(String(b.datum)));
+    const openCount = requests.length;
     let badge = document.getElementById("_admin_badge");
     const adminTab = document.getElementById("_na");
     if (adminTab) {
@@ -1086,14 +1122,14 @@ async function _refreshOpenRequests() {
     }
     const listContainer = document.getElementById("_al");
     listContainer.innerHTML = "";
-    if (e && e.length > 0) {
-        e.forEach(x => {
-            const r = p.find(z => z.id === x.user_id);
+    if (requests.length > 0) {
+        requests.forEach(x => {
+            const r = (profiles || []).find(z => z.id === x.user_id);
             const dParts = x.datum.split('-');
             const formattedDate = `${dParts[2]}.${dParts[1]}.${dParts[0]}`;
             const entryDate = new Date(x.datum);
             const day = entryDate.getDay();
-            const isRegular = (day === 0 || day === 3 || day === 5);
+            const isRegular = x._isDutyAttendance ? (day === 0 || day === 5) : (day === 0 || day === 3 || day === 5);
             const i = document.createElement("li");
             i.id = `card_${x.id}`;
             i.className = `_admin_card ${!isRegular ? '_card_exc' : ''}`;
@@ -1106,13 +1142,13 @@ async function _refreshOpenRequests() {
             header.appendChild(dateLabel);
             const headerActions = document.createElement("div");
             headerActions.style.cssText = "display:flex;align-items:center;gap:6px;";
-            if (isDeletionRequest || !isRegular) {
+            if (isDeletionRequest || !isRegular || x._isDutyAttendance) {
                 const statusLabel = document.createElement("span");
                 statusLabel.style.cssText = `color:${isDeletionRequest ? "#c0392b" : "#e67e22"};font-weight:bold;font-size:0.75em;white-space:nowrap;`;
-                statusLabel.textContent = isDeletionRequest ? "Löschung beantragt" : "⚠️ Ausnahme";
+                statusLabel.textContent = isDeletionRequest ? "Löschung beantragt" : (x._isDutyAttendance ? "Nachmeldung" : "⚠️ Ausnahme");
                 headerActions.appendChild(statusLabel);
             }
-            if (!isDeletionRequest) {
+            if (!isDeletionRequest && !x._isDutyAttendance) {
                 const rejectButton = document.createElement("button");
                 rejectButton.type = "button";
                 rejectButton.textContent = "Ablehnen";
@@ -1138,14 +1174,19 @@ async function _refreshOpenRequests() {
                 details.append(fieldLabel, document.createTextNode(` ${value ?? ""}`));
                 if (lineBreak) details.appendChild(document.createElement("br"));
             };
-            if (x.gastschuetze) appendField("Gast", x.gastschuetze);
-            appendField("Kategorie", x.typ || "Training");
-            appendField("Stand", x.schiessstand, false);
-            details.appendChild(document.createTextNode(" | "));
-            appendField("Disziplin", x.disziplin);
-            appendField("Waffe", x.waffe);
-            appendField("Aufsicht", x.aufsicht, !x.bemerkung);
-            if (x.bemerkung) {
+            if (x._isDutyAttendance) {
+                appendField("Dienstart", x.dienstart);
+                if (x.kommentar) appendField("Kommentar", x.kommentar, false);
+            } else {
+                if (x.gastschuetze) appendField("Gast", x.gastschuetze);
+                appendField("Kategorie", x.typ || "Training");
+                appendField("Stand", x.schiessstand, false);
+                details.appendChild(document.createTextNode(" | "));
+                appendField("Disziplin", x.disziplin);
+                appendField("Waffe", x.waffe);
+                appendField("Aufsicht", x.aufsicht, !x.bemerkung);
+            }
+            if (!x._isDutyAttendance && x.bemerkung) {
                 details.appendChild(document.createElement("br"));
                 const noteLabel = document.createElement("strong");
                 noteLabel.style.color = "#c0392b";
@@ -1163,7 +1204,7 @@ async function _refreshOpenRequests() {
                 action.onclick = () => window._showDeleteModal(x.id, "reject_entry_deletion", `den Eintrag vom ${formattedDate}`);
             } else {
                 action.textContent = "✓ Jetzt Freigeben";
-                action.onclick = () => window._approveEntry(x.id, action);
+                action.onclick = () => window._approveEntry(x.id, action, x._requestTable);
             }
             i.append(header, details, action);
             listContainer.appendChild(i);
@@ -1173,13 +1214,24 @@ async function _refreshOpenRequests() {
     }
 }
 
-window._approveEntry = async function(id, btn) {
+window._approveEntry = async function(id, btn, table = "entries") {
     if (btn) { btn.disabled = true; btn.innerHTML = `<span class="_spinner"></span>`; }
     const card = document.getElementById(`card_${id}`);
     if (card) card.classList.add("_card_dismiss");
     setTimeout(async () => {
-        await window._c.from('entries').update({ status: 'bestätigt' }).eq('id', id);
-        _toast("Eintrag erfolgreich freigegeben!", "success");
+        const { data, error } = await window._c.from(table).update({ status: 'bestätigt' })
+            .eq('id', id).eq('status', 'offen').select('id');
+        if (error || !data?.length) {
+            if (card) card.classList.remove("_card_dismiss");
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "✓ Jetzt Freigeben";
+            }
+            console.error("Eintrag konnte nicht freigegeben werden:", error || new Error("Eintrag ist nicht mehr offen."));
+            _toast(`Eintrag konnte nicht freigegeben werden: ${error?.message || "Eintrag ist nicht mehr offen."}`, "error");
+            return;
+        }
+        _toast(table === "Stundenauswertung" ? "Dienst-Nachmeldung erfolgreich freigegeben!" : "Eintrag erfolgreich freigegeben!", "success");
         _refreshOpenRequests();
     }, 350);
 };

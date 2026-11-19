@@ -20,6 +20,7 @@
         --border: #dcdcdc;
         --danger: #e74c3c;
     }
+    html { overflow-y: scroll; }
     body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
         background: var(--bg) !important;
@@ -84,6 +85,7 @@
         justify-content: space-between;
         align-items: center;
         width: 100%;
+        position: relative;
     }
     
     ._top_head h3 {
@@ -201,11 +203,21 @@
     ._start_column { display: grid; align-content: start; gap: 18px; min-width: 0; }
     ._start_panel { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); text-align: left; }
     ._start_panel h4 { margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--primary); }
-    ._next_duty_item { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #edf0ed; }
-    ._next_duty_item:last-child { border-bottom: 0; }
-    ._next_duty_label { font-weight: 600; }
-    ._next_duty_date { color: var(--primary-dark); font-weight: 700; text-align: right; }
-    ._duty_check_button { width: auto; min-width: 190px; margin: 4px 0 0; }
+    ._start_headline { position: relative; }
+    ._duty_header_summary { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; justify-content: center; gap: 24px; width: min(42%, 500px); pointer-events: none; text-align: center; }
+    ._duty_header_item { min-width: 0; flex: 0 1 50%; }
+    ._duty_header_item span, ._duty_header_item strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    ._duty_header_item span { color: #555; font-size: 0.9em; font-weight: 600; }
+    ._duty_label_short { display: none !important; }
+    ._duty_header_item strong { color: var(--primary-dark); font-size: 1.25em; }
+    ._duty_header_item { text-align: center; }
+    ._entries_duty_summary { width: min(42%, 500px); }
+    ._duty_check_button { width: 100%; margin: 4px 0 0; }
+    ._duty_feedback_panel { border-color: #b7d9c4; background: linear-gradient(110deg, #f4fbf6, #fff 70%); }
+    ._duty_feedback_panel h4 { font-size: 1.18em; }
+    ._duty_feedback_panel p { font-size: 1.02em; }
+    ._duty_feedback_panel ._duty_check_button { min-height: 58px; font-size: 1.08em; letter-spacing: 0.04em; }
+    ._desktop_duty_summary, ._entries_duty_summary { display: none; }
     ._duty_modal_overlay { display: none; position: fixed; inset: 0; z-index: 10002; justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; background: rgba(0,0,0,0.5); }
     ._duty_modal { width: 100%; max-width: 420px; padding: 24px; border-radius: 10px; background: var(--white); box-shadow: 0 4px 20px rgba(0,0,0,0.3); box-sizing: border-box; }
     ._duty_modal h3 { margin-top: 0; color: var(--primary); }
@@ -217,14 +229,37 @@
     @media (min-width: 850px) {
         ._c:not(._login_main) { width: calc(100% - 48px); max-width: 1180px; margin: 24px auto; }
         ._nb { width: calc(100% - 48px); max-width: 1180px; }
-        #_start._c { padding: 30px; }
-            ._start_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        #_start._c, #_a._c, #_dw._c, #_av._c { padding: 30px; }
+        ._start_grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        ._start_column { display: contents; }
+        ._start_column:first-child ._start_panel:first-child { grid-column: 1 / -1; }
+        ._start_column:last-child ._start_panel:first-child { grid-column: 1; }
+        ._start_column:last-child ._start_panel:nth-child(2) { grid-column: 2; grid-row: 2 / span 2; }
+        ._start_column:last-child ._start_panel:last-child { grid-column: 1; grid-row: 3; }
+        ._desktop_duty_summary, ._entries_duty_summary { display: flex; }
     }
     @media (max-width: 849px) {
         ._login_layout { width: 100%; grid-template-columns: minmax(0, 1fr); margin: 0; }
         ._login_main { width: 90%; max-width: 450px; margin: 30px 10px; }
         ._calendar_card { display: none; }
         ._duty_check_button { width: 100%; }
+        ._start_headline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+        ._start_headline h3 { align-self: center; }
+        ._start_headline ._top_actions { grid-column: 2; grid-row: 1; }
+        ._duty_header_summary { position: static; transform: none; grid-column: 1 / -1; width: 100%; display: grid; gap: 4px; text-align: left; }
+        ._duty_header_item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+        ._duty_header_item ._duty_label_full { display: none; }
+        ._duty_header_item ._duty_label_short { display: block !important; font-size: 0.75em; }
+        ._duty_header_item strong { font-size: 0.82em; }
+        ._desktop_duty_summary, ._entries_duty_summary { display: none; }
+        ._weapon_form_panel { padding-bottom: 0; border-bottom: 0; border-radius: 10px 10px 0 0; }
+        ._owned_weapons_panel { margin-top: -18px; padding-top: 0; border-top: 0; border-radius: 0 0 10px 10px; }
+    }
+    @media (max-width: 360px) {
+        ._start_headline h3 { font-size: 0.9em; }
+        ._start_headline ._top_actions { gap: 4px; }
+        ._start_headline ._timer_display { font-size: 0.68em; }
+        ._start_headline ._lo_btn { padding: 4px 6px !important; font-size: 0.68em; }
     }
 </style>
 </head>
@@ -262,8 +297,12 @@
 
 <div class="_c" id="_start" style="display:none;">
     <div class="_hr">
-        <div class="_top_head">
+        <div class="_top_head _start_headline">
             <h3>Startseite</h3>
+            <div class="_duty_header_summary" aria-label="Nächste Dienste">
+                <div class="_duty_header_item" title="Standaufsicht"><span class="_duty_label_full">Standaufsicht</span><span class="_duty_label_short" aria-hidden="true">Standaufsicht</span><strong data-duty-next="standaufsicht">Wird geladen …</strong></div>
+                <div class="_duty_header_item" title="Wirtschaftsdienst"><span class="_duty_label_full">Wirtschaftsdienst</span><span class="_duty_label_short" aria-hidden="true">Wirtschaftsdienst</span><strong data-duty-next="wirtschaftsdienst">Wird geladen …</strong></div>
+            </div>
             <div class="_top_actions">
                 <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
@@ -277,16 +316,10 @@
     
     <div class="_start_grid">
         <div class="_start_column">
-            <section class="_start_panel">
+            <section class="_start_panel _duty_feedback_panel">
                 <h4>Dienst-Rückmeldung</h4>
-                <p style="margin:0 0 10px;color:#666;">Bist du heute für einen Dienst da? Melde deine Anwesenheit einmalig zurück.</p>
+                <p style="margin:0 0 10px;color:#666;">Melde deinen Dienst am selben Freitag oder Sonntag zurück. Nachmeldungen für vergangene Tage benötigen eine Admin-Freigabe.</p>
                 <button id="_open_duty_check" type="button" class="_mb _duty_check_button">Ich habe Dienst</button>
-            </section>
-
-            <section class="_start_panel">
-                <h4>Nächste Dienste</h4>
-                <div class="_next_duty_item"><span class="_next_duty_label">Standaufsicht</span><span id="_next_standaufsicht" class="_next_duty_date">Wird geladen …</span></div>
-                <div class="_next_duty_item"><span class="_next_duty_label">Wirtschaftsdienst</span><span id="_next_wirtschaftsdienst" class="_next_duty_date">Wird geladen …</span></div>
             </section>
         </div>
 
@@ -298,13 +331,16 @@
                 </div>
             </section>
 
-            <section class="_start_panel">
+            <section class="_start_panel _weapon_form_panel">
                 <h4>Eigene Waffe speichern</h4>
                 <label for="_new_w">Waffe *</label>
                 <input id="_new_w" placeholder="z.B. CZ Shadow 2">
                 <label for="_new_k">Kaliber *</label>
                 <input id="_new_k" placeholder="z.B. 9mm">
                 <button id="_save_w_btn" class="_mb">Waffe speichern</button>
+            </section>
+
+            <section class="_start_panel _owned_weapons_panel">
                 <h4 style="margin-top:20px;">Meine Waffen (Nutzung ab 01.01.)</h4>
                 <ul id="_waffen_list"></ul>
             </section>
@@ -316,6 +352,10 @@
     <div class="_hr">
         <div class="_top_head">
             <h3>Neuer Eintrag</h3>
+            <div class="_duty_header_summary _entries_duty_summary" aria-label="Nächste Dienste">
+                <div class="_duty_header_item" title="Standaufsicht"><span>Standaufsicht</span><strong data-duty-next="standaufsicht">Wird geladen …</strong></div>
+                <div class="_duty_header_item" title="Wirtschaftsdienst"><span>Wirtschaftsdienst</span><strong data-duty-next="wirtschaftsdienst">Wird geladen …</strong></div>
+            </div>
             <div class="_top_actions">
                 <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
@@ -350,6 +390,10 @@
     <div class="_hr">
         <div class="_top_head">
             <h3>Dienstwünsche</h3>
+            <div class="_duty_header_summary _desktop_duty_summary" aria-label="Nächste Dienste">
+                <div class="_duty_header_item" title="Standaufsicht"><span>Standaufsicht</span><strong data-duty-next="standaufsicht">Wird geladen …</strong></div>
+                <div class="_duty_header_item" title="Wirtschaftsdienst"><span>Wirtschaftsdienst</span><strong data-duty-next="wirtschaftsdienst">Wird geladen …</strong></div>
+            </div>
             <div class="_top_actions">
                 <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
@@ -423,6 +467,10 @@
     <div class="_hr">
         <div class="_top_head">
             <h3>Export & Freigabe</h3>
+            <div class="_duty_header_summary _desktop_duty_summary" aria-label="Nächste Dienste">
+                <div class="_duty_header_item" title="Standaufsicht"><span>Standaufsicht</span><strong data-duty-next="standaufsicht">Wird geladen …</strong></div>
+                <div class="_duty_header_item" title="Wirtschaftsdienst"><span>Wirtschaftsdienst</span><strong data-duty-next="wirtschaftsdienst">Wird geladen …</strong></div>
+            </div>
             <div class="_top_actions">
                 <span class="_timer_display">3:00</span>
                 <button class="_lo_btn">Logout</button>
