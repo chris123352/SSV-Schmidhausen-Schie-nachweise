@@ -180,6 +180,8 @@
     
     #_ls, #_al, #_waffen_list { list-style: none; padding: 0; margin: 20px 0 0 0; }
     #_ls li, #_al li { background: var(--gray-light) !important; border: 1px solid var(--border) !important; border-radius: 6px; margin: 10px 0 !important; padding: 15px !important; text-align: left; }
+    #_waffen_list { margin-top: 10px; }
+    #_waffen_list li { background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 6px 0; padding: 10px 12px; }
 
     ._sb_badge { float: right; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; color: white; text-transform: uppercase; letter-spacing: 0.5px; }
     ._s0 { background-color: #f39c12; }
@@ -203,6 +205,8 @@
     ._start_column { display: grid; align-content: start; gap: 18px; min-width: 0; }
     ._start_panel { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); text-align: left; }
     ._start_panel h4 { margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: var(--primary); }
+    ._owned_weapons_panel { padding: 14px; }
+    ._owned_weapons_panel h4 { margin-bottom: 10px; }
     ._start_headline { position: relative; }
     ._duty_header_summary { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; justify-content: center; gap: 24px; width: min(42%, 500px); pointer-events: none; text-align: center; }
     ._duty_header_item { min-width: 0; flex: 0 1 50%; }
@@ -341,7 +345,7 @@
             </section>
 
             <section class="_start_panel _owned_weapons_panel">
-                <h4 style="margin-top:20px;">Meine Waffen (Nutzung ab 01.01.)</h4>
+                <h4>Meine Waffen (Nutzung ab 01.01.)</h4>
                 <ul id="_waffen_list"></ul>
             </section>
         </div>

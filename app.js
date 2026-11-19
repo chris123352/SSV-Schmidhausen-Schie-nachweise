@@ -785,7 +785,7 @@ async function _loadWaffen(u) {
             }
             
             const li = document.createElement("li");
-            li.style.cssText = "background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 10px 0; padding: 15px; display: flex; justify-content: space-between; align-items: center;";
+            li.style.cssText = "background: var(--gray-light); border: 1px solid var(--border); border-radius: 6px; margin: 6px 0; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center;";
             const safeName = w.waffe.replace(/'/g, "\\'");
             
             li.innerHTML = `
@@ -819,17 +819,20 @@ window._showDeleteModal = function(id, type, name) {
     const isRequest = type === 'request_entry_deletion';
     const isDeletionRequestRejection = type === 'reject_entry_deletion';
     const isRejection = type === 'reject_entry';
-    const title = isDeletionRequestRejection ? 'Eintrag behalten?' : (isRejection ? 'Eintrag ablehnen?' : (isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?')));
-    const text = isRejection
+    const isDutyAttendanceRejection = type === 'reject_duty_attendance';
+    const title = isDutyAttendanceRejection ? 'Dienst-Rückmeldung ablehnen?' : (isDeletionRequestRejection ? 'Eintrag behalten?' : (isRejection ? 'Eintrag ablehnen?' : (isWeapon ? 'Waffe löschen?' : (isRequest ? 'Löschung beantragen?' : 'Eintrag löschen?'))));
+    const text = isDutyAttendanceRejection
+        ? `Möchtest du die Dienst-Rückmeldung ${name} ablehnen?`
+        : (isRejection
         ? `Möchtest du ${name} ablehnen? Das Mitglied sieht anschließend die Meldung „Eintrag abgelehnt“ bei seinen Einträgen.`
         : (isDeletionRequestRejection
         ? `Möchtest du den Löschantrag für <strong>${name}</strong> ablehnen? Der freigegebene Eintrag bleibt dauerhaft erhalten.`
         : (isRequest
         ? `Möchtest du die Löschung von <strong>${name}</strong> bei einem Administrator beantragen?`
-            : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`)));
+            : (isWeapon ? `Möchtest du die Waffe <strong>${name}</strong> wirklich löschen?` : `Möchtest du <strong>${name}</strong> wirklich löschen?`))));
     document.getElementById("_delete_modal_title").textContent = title;
     document.getElementById("_delete_modal_text").innerHTML = text;
-    document.getElementById("_btn_confirm_delete").textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection ? "Ablehnen" : (isRequest ? "Beantragen" : "Löschen"));
+    document.getElementById("_btn_confirm_delete").textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection || isDutyAttendanceRejection ? "Ablehnen" : (isRequest ? "Beantragen" : "Löschen"));
     document.getElementById("_delete_modal").style.display = "flex";
 };
 
@@ -844,10 +847,15 @@ window._confirmDeleteAction = async function() {
     const btn = document.getElementById("_btn_confirm_delete");
     const isRejection = type === "reject_entry";
     const isDeletionRequestRejection = type === "reject_entry_deletion";
+    const isDutyAttendanceRejection = type === "reject_duty_attendance";
     btn.disabled = true;
     btn.innerHTML = `<span class="_spinner" style="border-top-color:#fff;"></span>`;
     let error;
-    if (isRejection) {
+    if (isDutyAttendanceRejection) {
+        const result = await window._c.from('Stundenauswertung').update({ status: 'abgelehnt' })
+            .eq('id', id).eq('status', 'offen').select('id');
+        error = result.error || (result.data.length ? null : new Error("Dienst-Rückmeldung ist nicht mehr offen."));
+    } else if (isRejection) {
         const result = await window._c.from('entries').update({ status: 'abgelehnt' })
             .eq('id', id).eq('status', 'offen').select('id');
         error = result.error || (result.data.length ? null : new Error("Eintrag ist nicht mehr offen."));
@@ -870,17 +878,22 @@ window._confirmDeleteAction = async function() {
         error = new Error("Ungültige Löschaktion.");
     }
     btn.disabled = false;
-    btn.textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection ? "Ablehnen" : (type === "request_entry_deletion" ? "Beantragen" : "Löschen"));
+    btn.textContent = isDeletionRequestRejection ? "Eintrag behalten" : (isRejection || isDutyAttendanceRejection ? "Ablehnen" : (type === "request_entry_deletion" ? "Beantragen" : "Löschen"));
     window._hideDeleteModal();
     if (error) {
-        if (isRejection || isDeletionRequestRejection) {
-            console.error("Eintragsstatus konnte nicht geändert werden:", error);
-            _toast(`Eintragsstatus konnte nicht geändert werden: ${error.message}`, "error");
+        if (isRejection || isDeletionRequestRejection || isDutyAttendanceRejection) {
+            const errorMessage = isDutyAttendanceRejection
+                ? "Dienst-Rückmeldung konnte nicht abgelehnt werden"
+                : "Eintragsstatus konnte nicht geändert werden";
+            console.error(`${errorMessage}:`, error);
+            _toast(`${errorMessage}: ${error.message}`, "error");
         } else {
             _toast(type === 'request_entry_deletion' || type === 'approve_entry_deletion' ? "Freigegebene Einträge können nicht gelöscht werden." : "Fehler beim Löschen.", "error");
         }
     } else {
-        _toast(isDeletionRequestRejection ? "Löschantrag abgelehnt. Der freigegebene Eintrag bleibt erhalten." : (isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : "Erfolgreich gelöscht!"), "success");
+        _toast(isDutyAttendanceRejection
+            ? "Dienst-Rückmeldung abgelehnt."
+            : (isDeletionRequestRejection ? "Löschantrag abgelehnt. Der freigegebene Eintrag bleibt erhalten." : (isRejection ? "Eintrag abgelehnt. Das Mitglied sieht die Meldung in seinen Einträgen." : "Erfolgreich gelöscht!")), "success");
         const { data: { user } } = await window._c.auth.getUser();
         if (type === 'waffe') {
             _loadWaffen(user);
@@ -1148,13 +1161,17 @@ async function _refreshOpenRequests() {
                 statusLabel.textContent = isDeletionRequest ? "Löschung beantragt" : (x._isDutyAttendance ? "Nachmeldung" : "⚠️ Ausnahme");
                 headerActions.appendChild(statusLabel);
             }
-            if (!isDeletionRequest && !x._isDutyAttendance) {
+            if (!isDeletionRequest) {
                 const rejectButton = document.createElement("button");
                 rejectButton.type = "button";
                 rejectButton.textContent = "Ablehnen";
-                rejectButton.title = "Eintrag ablehnen";
+                rejectButton.title = x._isDutyAttendance ? "Dienst-Rückmeldung ablehnen" : "Eintrag ablehnen";
                 rejectButton.style.cssText = "padding:4px 8px;border:1px solid #c0392b;border-radius:5px;background:#fff;color:#c0392b;font-size:0.72em;font-weight:bold;cursor:pointer;white-space:nowrap;";
-                rejectButton.onclick = () => window._showDeleteModal(x.id, "reject_entry", `den Eintrag vom ${formattedDate}`);
+                rejectButton.onclick = () => window._showDeleteModal(
+                    x.id,
+                    x._isDutyAttendance ? "reject_duty_attendance" : "reject_entry",
+                    x._isDutyAttendance ? `vom ${formattedDate}` : `den Eintrag vom ${formattedDate}`
+                );
                 headerActions.appendChild(rejectButton);
             }
             header.appendChild(headerActions);
